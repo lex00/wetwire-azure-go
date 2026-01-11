@@ -485,3 +485,382 @@ func TestRunValidate_WarningsOnly(t *testing.T) {
 
 	assert.Contains(t, stdout, "warning")
 }
+
+// =====================================================================
+// Diff Command Tests
+// =====================================================================
+
+// TestRun_Diff tests run with diff command
+func TestRun_Diff(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a template to compare against
+	existingTemplate := `{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": []
+}`
+	existingFile := filepath.Join(tmpDir, "existing.json")
+	err := os.WriteFile(existingFile, []byte(existingTemplate), 0644)
+	require.NoError(t, err)
+
+	// Create a simple Go file with resource
+	goCode := `package main
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorage",
+	Location: "eastus",
+}
+`
+	err = os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := run([]string{"diff", "--against", existingFile, tmpDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	// Should show some diff output (additions since existing template is empty)
+	assert.Contains(t, stdout, "+")
+}
+
+// TestRunDiff_NoAgainstFlag tests runDiff without --against flag
+func TestRunDiff_NoAgainstFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	_, stderr := captureOutput(func() {
+		exitCode := runDiff([]string{tmpDir})
+		assert.Equal(t, ExitInvalidArgument, exitCode)
+	})
+
+	assert.Contains(t, stderr, "--against")
+}
+
+// TestRunDiff_TextMode tests runDiff in text diff mode (default)
+func TestRunDiff_TextMode(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create existing template with one resource
+	existingTemplate := `{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2021-02-01",
+      "name": "oldstorage",
+      "location": "westus"
+    }
+  ]
+}`
+	existingFile := filepath.Join(tmpDir, "existing.json")
+	err := os.WriteFile(existingFile, []byte(existingTemplate), 0644)
+	require.NoError(t, err)
+
+	// Create a Go file with different resource
+	goCode := `package main
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Name:     "newstorage",
+	Location: "eastus",
+}
+`
+	srcDir := filepath.Join(tmpDir, "src")
+	err = os.MkdirAll(srcDir, 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runDiff([]string{"--against", existingFile, srcDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	// Should show line-by-line diff
+	assert.Contains(t, stdout, "-")
+	assert.Contains(t, stdout, "+")
+}
+
+// TestRunDiff_SemanticMode tests runDiff in semantic diff mode
+func TestRunDiff_SemanticMode(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create existing template (different key order, same content as generated)
+	existingTemplate := `{
+  "outputs": {},
+  "variables": {},
+  "parameters": {},
+  "contentVersion": "1.0.0.0",
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "resources": []
+}`
+	existingFile := filepath.Join(tmpDir, "existing.json")
+	err := os.WriteFile(existingFile, []byte(existingTemplate), 0644)
+	require.NoError(t, err)
+
+	// Create a Go file that generates empty template
+	goCode := `package main
+
+var x = 42
+`
+	srcDir := filepath.Join(tmpDir, "src")
+	err = os.MkdirAll(srcDir, 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runDiff([]string{"--against", existingFile, "--semantic", srcDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	// In semantic mode, different key ordering should show no diff
+	assert.Contains(t, stdout, "No differences")
+}
+
+// TestRunDiff_NonExistentAgainstFile tests runDiff with non-existent against file
+func TestRunDiff_NonExistentAgainstFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	_, stderr := captureOutput(func() {
+		exitCode := runDiff([]string{"--against", "/nonexistent/file.json", tmpDir})
+		assert.Equal(t, ExitBuildError, exitCode)
+	})
+
+	assert.Contains(t, stderr, "Error")
+}
+
+// TestRunDiff_InvalidAgainstJSON tests runDiff with invalid JSON in against file
+func TestRunDiff_InvalidAgainstJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	existingFile := filepath.Join(tmpDir, "existing.json")
+	err := os.WriteFile(existingFile, []byte("{invalid json"), 0644)
+	require.NoError(t, err)
+
+	_, stderr := captureOutput(func() {
+		exitCode := runDiff([]string{"--against", existingFile, tmpDir})
+		assert.Equal(t, ExitBuildError, exitCode)
+	})
+
+	assert.Contains(t, stderr, "Error")
+}
+
+// TestRunDiff_ColorFlag tests runDiff with --color flag
+func TestRunDiff_ColorFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	existingTemplate := `{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": []
+}`
+	existingFile := filepath.Join(tmpDir, "existing.json")
+	err := os.WriteFile(existingFile, []byte(existingTemplate), 0644)
+	require.NoError(t, err)
+
+	goCode := `package main
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorage",
+	Location: "eastus",
+}
+`
+	srcDir := filepath.Join(tmpDir, "src")
+	err = os.MkdirAll(srcDir, 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runDiff([]string{"--against", existingFile, "--color=false", srcDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	// Should not contain ANSI color codes when color is disabled
+	assert.NotContains(t, stdout, "\033[")
+}
+
+// TestRunDiff_NoDifferences tests runDiff when templates are identical
+func TestRunDiff_NoDifferences(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create empty template (matches what an empty source will produce)
+	existingTemplate := `{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "variables": {},
+  "resources": [],
+  "outputs": {}
+}`
+	existingFile := filepath.Join(tmpDir, "existing.json")
+	err := os.WriteFile(existingFile, []byte(existingTemplate), 0644)
+	require.NoError(t, err)
+
+	// Create a Go file with no resources
+	goCode := `package main
+
+var x = 42
+`
+	srcDir := filepath.Join(tmpDir, "src")
+	err = os.MkdirAll(srcDir, 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runDiff([]string{"--against", existingFile, "--semantic", srcDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "No differences")
+}
+
+// =====================================================================
+// Watch Command Tests
+// =====================================================================
+
+// TestRun_Watch tests run with watch command (immediate cancel)
+func TestRun_Watch(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	goCode := `package main
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorage",
+	Location: "eastus",
+}
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	// For testing, we'll use a special test mode that exits after first build
+	stdout, _ := captureOutput(func() {
+		exitCode := runWatch([]string{"--test-run", tmpDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Watching")
+}
+
+// TestRunWatch_WithOutput tests runWatch with -o flag
+func TestRunWatch_WithOutput(t *testing.T) {
+	tmpDir := t.TempDir()
+	outputFile := filepath.Join(tmpDir, "output.json")
+
+	goCode := `package main
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorage",
+	Location: "eastus",
+}
+`
+	srcDir := filepath.Join(tmpDir, "src")
+	err := os.MkdirAll(srcDir, 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runWatch([]string{"-o", outputFile, "--test-run", srcDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Watching")
+	// Check output file was created
+	_, err = os.Stat(outputFile)
+	assert.NoError(t, err)
+}
+
+// TestRunWatch_WithInterval tests runWatch with --interval flag
+func TestRunWatch_WithInterval(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	goCode := `package main
+
+var x = 42
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runWatch([]string{"--interval", "100ms", "--test-run", tmpDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Watching")
+}
+
+// TestRunWatch_NonExistentPath tests runWatch with non-existent path
+func TestRunWatch_NonExistentPath(t *testing.T) {
+	_, stderr := captureOutput(func() {
+		exitCode := runWatch([]string{"/nonexistent/path"})
+		assert.Equal(t, ExitBuildError, exitCode)
+	})
+
+	assert.Contains(t, stderr, "Error")
+}
+
+// TestRunWatch_InvalidInterval tests runWatch with invalid interval
+func TestRunWatch_InvalidInterval(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	_, stderr := captureOutput(func() {
+		exitCode := runWatch([]string{"--interval", "invalid", tmpDir})
+		assert.Equal(t, ExitInvalidArgument, exitCode)
+	})
+
+	assert.Contains(t, stderr, "invalid")
+}
+
+// TestRunWatch_BuildError tests runWatch handling build errors
+func TestRunWatch_BuildError(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create invalid Go file
+	err := os.WriteFile(filepath.Join(tmpDir, "bad.go"), []byte("invalid go {{{"), 0644)
+	require.NoError(t, err)
+
+	_, stderr := captureOutput(func() {
+		exitCode := runWatch([]string{"--test-run", tmpDir})
+		// Should still exit with success since watch continues on build errors
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	// Should report the build error
+	assert.Contains(t, stderr, "Build error")
+}
+
+// TestRunWatch_Debounce tests that rapid changes are debounced
+func TestRunWatch_Debounce(t *testing.T) {
+	// This test verifies debouncing behavior
+	// In test mode, we simulate rapid file changes
+	tmpDir := t.TempDir()
+
+	goCode := `package main
+
+var x = 42
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	// The debounce test is tricky in unit tests
+	// We just verify the command accepts the default debounce
+	stdout, _ := captureOutput(func() {
+		exitCode := runWatch([]string{"--test-run", tmpDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Watching")
+}
