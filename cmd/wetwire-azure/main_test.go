@@ -25,14 +25,14 @@ func captureOutput(f func()) (string, string) {
 
 	f()
 
-	wOut.Close()
-	wErr.Close()
+	_ = wOut.Close()
+	_ = wErr.Close()
 	os.Stdout = oldStdout
 	os.Stderr = oldStderr
 
 	var bufOut, bufErr bytes.Buffer
-	io.Copy(&bufOut, rOut)
-	io.Copy(&bufErr, rErr)
+	_, _ = io.Copy(&bufOut, rOut)
+	_, _ = io.Copy(&bufErr, rErr)
 
 	return bufOut.String(), bufErr.String()
 }
@@ -111,8 +111,8 @@ var MyStorage = storage.StorageAccount{
 	require.NoError(t, err)
 
 	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
+	require.NoError(t, os.Chdir(tmpDir))
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	stdout, _ := captureOutput(func() {
 		exitCode := runLint([]string{})
@@ -364,4 +364,124 @@ var x = 42
 	})
 
 	assert.Contains(t, stdout, "No issues found")
+}
+
+// TestRun_Validate tests run with validate command
+func TestRun_Validate(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "template.json")
+
+	template := `{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": []
+}`
+	err := os.WriteFile(tmpFile, []byte(template), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := run([]string{"validate", tmpFile})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Template is valid")
+}
+
+// TestRunValidate_ValidTemplate tests runValidate with valid template
+func TestRunValidate_ValidTemplate(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "template.json")
+
+	template := `{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": []
+}`
+	err := os.WriteFile(tmpFile, []byte(template), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runValidate([]string{tmpFile})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Template is valid")
+}
+
+// TestRunValidate_InvalidTemplate tests runValidate with invalid template
+func TestRunValidate_InvalidTemplate(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "template.json")
+
+	template := `{
+  "contentVersion": "1.0.0.0",
+  "resources": []
+}`
+	err := os.WriteFile(tmpFile, []byte(template), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runValidate([]string{tmpFile})
+		assert.Equal(t, ExitBuildError, exitCode)
+	})
+
+	assert.Contains(t, stdout, "$schema")
+	assert.Contains(t, stdout, "error")
+}
+
+// TestRunValidate_NoArgs tests runValidate with no arguments
+func TestRunValidate_NoArgs(t *testing.T) {
+	_, stderr := captureOutput(func() {
+		exitCode := runValidate([]string{})
+		assert.Equal(t, ExitInvalidArgument, exitCode)
+	})
+
+	assert.Contains(t, stderr, "ARM template file is required")
+}
+
+// TestRunValidate_NonExistentFile tests runValidate with non-existent file
+func TestRunValidate_NonExistentFile(t *testing.T) {
+	_, stderr := captureOutput(func() {
+		exitCode := runValidate([]string{"/nonexistent/template.json"})
+		assert.Equal(t, ExitBuildError, exitCode)
+	})
+
+	assert.Contains(t, stderr, "Validation failed")
+}
+
+// TestRunValidate_InvalidJSON tests runValidate with invalid JSON
+func TestRunValidate_InvalidJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "template.json")
+
+	err := os.WriteFile(tmpFile, []byte("{invalid json"), 0644)
+	require.NoError(t, err)
+
+	_, stderr := captureOutput(func() {
+		exitCode := runValidate([]string{tmpFile})
+		assert.Equal(t, ExitBuildError, exitCode)
+	})
+
+	assert.Contains(t, stderr, "Validation failed")
+}
+
+// TestRunValidate_WarningsOnly tests runValidate with only warnings
+func TestRunValidate_WarningsOnly(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "template.json")
+
+	template := `{
+  "$schema": "https://example.com/invalid-schema",
+  "contentVersion": "1.0.0.0",
+  "resources": []
+}`
+	err := os.WriteFile(tmpFile, []byte(template), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runValidate([]string{tmpFile})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "warning")
 }
