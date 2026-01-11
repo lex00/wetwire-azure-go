@@ -29,7 +29,7 @@ All rules use the **WAZ** prefix (Wetwire AZure) followed by a 3-digit number:
 
 | Rule | Description | Severity | Auto-fix |
 |------|-------------|----------|----------|
-| WAZ001 | Use location constants | warning | No |
+| WAZ001 | Use location constants | warning | Yes |
 | WAZ002 | Use direct references | warning | No |
 | WAZ003 | Extract nested configurations | warning | No |
 | WAZ004 | Detect duplicate resource names | error | No |
@@ -116,7 +116,7 @@ var MyVM = compute.VirtualMachine{
 }
 ```
 
-**Auto-fix:** Not available
+**Auto-fix:** Available - normalizes location strings to lowercase and removes spaces
 
 ---
 

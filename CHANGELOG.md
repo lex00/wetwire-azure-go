@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - WAZ006: Detect secrets and credentials (AWS keys, GitHub tokens, passwords)
   - WAZ007: Detect sensitive file paths (.env, .pem, .key)
   - WAZ008: Detect insecure defaults (HTTP, public access)
+- Lint auto-fix support via `--fix` flag:
+  - WAZ001: Auto-fix location format (normalize to lowercase, remove spaces)
+  - FixableRule interface for implementing auto-fix in custom rules
 
 ## [1.0.0] - 2026-01-11
 
