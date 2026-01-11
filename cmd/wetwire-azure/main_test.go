@@ -1269,3 +1269,93 @@ func TestIsResource(t *testing.T) {
 		})
 	}
 }
+
+// TestRunTest tests the test command
+func TestRunTest(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runTest([]string{"--persona", "beginner", "--output-dir", tmpDir, "create a storage account"})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Running test with persona: beginner")
+	assert.Contains(t, stdout, "Score:")
+}
+
+// TestRunTest_AllPersonas tests the test command with all personas
+func TestRunTest_AllPersonas(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runTest([]string{"--all-personas", "--output-dir", tmpDir, "create a storage account"})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "beginner")
+	assert.Contains(t, stdout, "intermediate")
+	assert.Contains(t, stdout, "expert")
+}
+
+// TestRunTest_NoPrompt tests the test command with no prompt
+func TestRunTest_NoPrompt(t *testing.T) {
+	_, stderr := captureOutput(func() {
+		exitCode := runTest([]string{"--persona", "beginner"})
+		assert.Equal(t, ExitInvalidArgument, exitCode)
+	})
+
+	assert.Contains(t, stderr, "prompt required")
+}
+
+// TestRunTest_InvalidPersona tests the test command with invalid persona
+func TestRunTest_InvalidPersona(t *testing.T) {
+	_, stderr := captureOutput(func() {
+		exitCode := runTest([]string{"--persona", "invalid", "test prompt"})
+		assert.Equal(t, ExitInvalidArgument, exitCode)
+	})
+
+	assert.Contains(t, stderr, "unknown persona")
+}
+
+// TestRunDesign tests the design command
+func TestRunDesign(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runDesign([]string{"--output-dir", tmpDir, "create a storage account"})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Generating infrastructure")
+	assert.Contains(t, stdout, "Generated:")
+	assert.FileExists(t, filepath.Join(tmpDir, "main.go"))
+	assert.FileExists(t, filepath.Join(tmpDir, "template.json"))
+}
+
+// TestRunDesign_VM tests the design command with VM prompt
+func TestRunDesign_VM(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runDesign([]string{"--output-dir", tmpDir, "create a virtual machine"})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Generating infrastructure")
+	assert.FileExists(t, filepath.Join(tmpDir, "main.go"))
+
+	// Read the generated file and verify it contains VM code
+	content, err := os.ReadFile(filepath.Join(tmpDir, "main.go"))
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "VirtualMachine")
+}
+
+// TestRunDesign_NoPrompt tests the design command with no prompt
+func TestRunDesign_NoPrompt(t *testing.T) {
+	_, stderr := captureOutput(func() {
+		exitCode := runDesign([]string{})
+		assert.Equal(t, ExitInvalidArgument, exitCode)
+	})
+
+	assert.Contains(t, stderr, "prompt required")
+}

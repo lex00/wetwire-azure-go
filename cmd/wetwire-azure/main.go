@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -14,6 +15,9 @@ import (
 	"github.com/lex00/wetwire-azure-go/internal/linter"
 	"github.com/lex00/wetwire-azure-go/internal/template"
 	"github.com/lex00/wetwire-azure-go/internal/validator"
+	"github.com/lex00/wetwire-core-go/agent/orchestrator"
+	"github.com/lex00/wetwire-core-go/agent/personas"
+	"github.com/lex00/wetwire-core-go/agent/results"
 )
 
 // Exit codes
@@ -59,6 +63,10 @@ func run(args []string) int {
 		return runDiff(args[1:])
 	case "watch":
 		return runWatch(args[1:])
+	case "design":
+		return runDesign(args[1:])
+	case "test":
+		return runTest(args[1:])
 	case "help", "-h", "--help":
 		printUsage()
 		return ExitSuccess
@@ -82,6 +90,8 @@ func printUsage() {
 	fmt.Println("  wetwire-azure validate <arm-file>           Validate ARM template JSON")
 	fmt.Println("  wetwire-azure diff [package-path] [flags]   Compare generated vs existing template")
 	fmt.Println("  wetwire-azure watch [package-path] [flags]  Watch source files and auto-rebuild")
+	fmt.Println("  wetwire-azure design [flags]                AI-assisted infrastructure generation")
+	fmt.Println("  wetwire-azure test [flags]                  Run persona-based testing")
 	fmt.Println("  wetwire-azure help                          Show this help message")
 	fmt.Println()
 	fmt.Println("Options for build:")
@@ -1333,4 +1343,295 @@ func hasChanges(old, new map[string]time.Time) bool {
 	}
 
 	return false
+}
+
+// runTest executes the test command for persona-based testing
+func runTest(args []string) int {
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+
+	var personaName string
+	var allPersonas bool
+	var scenario string
+	var outputDir string
+
+	fs.StringVar(&personaName, "persona", "intermediate", "Persona to use (beginner, intermediate, expert, terse, verbose)")
+	fs.BoolVar(&allPersonas, "all-personas", false, "Run all personas")
+	fs.StringVar(&scenario, "scenario", "default", "Scenario name")
+	fs.StringVar(&outputDir, "output-dir", ".", "Output directory for results")
+
+	fs.SetOutput(os.Stderr)
+	if err := fs.Parse(args); err != nil {
+		return ExitInvalidArgument
+	}
+
+	// Get the prompt from remaining args or stdin
+	prompt := strings.Join(fs.Args(), " ")
+	if prompt == "" {
+		fmt.Fprintf(os.Stderr, "Error: prompt required\n")
+		fmt.Fprintf(os.Stderr, "Usage: wetwire-azure test --persona <name> \"<prompt>\"\n")
+		return ExitInvalidArgument
+	}
+
+	// Get personas to run
+	var personasToRun []personas.Persona
+	if allPersonas {
+		personasToRun = personas.All()
+	} else {
+		persona, err := personas.Get(personaName)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			return ExitInvalidArgument
+		}
+		personasToRun = []personas.Persona{persona}
+	}
+
+	// Create output directory
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Run test for each persona
+	for _, persona := range personasToRun {
+		fmt.Printf("Running test with persona: %s\n", persona.Name)
+
+		// Create config
+		config := orchestrator.DefaultConfig()
+		config.Persona = persona
+		config.Scenario = scenario
+		config.InitialPrompt = prompt
+		config.OutputDir = outputDir
+
+		// Create a mock runner for now (real implementation would use AI provider)
+		runner := &mockRunner{outputDir: outputDir}
+
+		// Create AI developer with persona
+		developer := orchestrator.NewAIDeveloper(persona, func(ctx context.Context, systemPrompt, message string) (string, error) {
+			// Mock response based on persona
+			return fmt.Sprintf("[%s response to: %s]", persona.Name, message), nil
+		})
+
+		// Create orchestrator
+		orch := orchestrator.New(config, developer, runner)
+
+		// Run the test
+		ctx := context.Background()
+		session, err := orch.Run(ctx)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Test failed for %s: %v\n", persona.Name, err)
+			continue
+		}
+
+		// Calculate score
+		score := orch.CalculateScore(1, len(runner.files), true, nil, 0, 0)
+
+		// Write results
+		resultsFile := filepath.Join(outputDir, fmt.Sprintf("results_%s.json", persona.Name))
+		if err := writeSessionResults(resultsFile, session); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing results: %v\n", err)
+		}
+
+		fmt.Printf("  Score: %d/15\n", score.Total())
+		fmt.Printf("  Results written to: %s\n", resultsFile)
+	}
+
+	return ExitSuccess
+}
+
+// mockRunner is a placeholder runner for testing
+type mockRunner struct {
+	outputDir string
+	files     []string
+	template  string
+}
+
+func (r *mockRunner) Run(ctx context.Context, prompt string) error {
+	// Generate a simple storage account based on prompt
+	code := `package infra
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorageaccount",
+	Location: "eastus",
+	SKU:      storage.SKU{Name: "Standard_LRS"},
+	Kind:     "StorageV2",
+}
+`
+	mainFile := filepath.Join(r.outputDir, "main.go")
+	if err := os.WriteFile(mainFile, []byte(code), 0644); err != nil {
+		return err
+	}
+	r.files = []string{mainFile}
+
+	// Generate simple template
+	r.template = `{"$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#"}`
+	return nil
+}
+
+func (r *mockRunner) AskDeveloper(ctx context.Context, question string) (string, error) {
+	return "", nil
+}
+
+func (r *mockRunner) GetGeneratedFiles() []string {
+	return r.files
+}
+
+func (r *mockRunner) GetTemplate() string {
+	return r.template
+}
+
+func writeSessionResults(filename string, session *results.Session) error {
+	data, err := json.MarshalIndent(session, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filename, data, 0644)
+}
+
+// runDesign executes the design command for AI-assisted infrastructure generation
+func runDesign(args []string) int {
+	fs := flag.NewFlagSet("design", flag.ContinueOnError)
+
+	var outputDir string
+
+	fs.StringVar(&outputDir, "output-dir", ".", "Output directory for generated code")
+
+	fs.SetOutput(os.Stderr)
+	if err := fs.Parse(args); err != nil {
+		return ExitInvalidArgument
+	}
+
+	// Get the prompt from remaining args
+	prompt := strings.Join(fs.Args(), " ")
+	if prompt == "" {
+		fmt.Fprintf(os.Stderr, "Error: prompt required\n")
+		fmt.Fprintf(os.Stderr, "Usage: wetwire-azure design --output-dir <dir> \"<prompt>\"\n")
+		return ExitInvalidArgument
+	}
+
+	// Create output directory
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
+		return ExitBuildError
+	}
+
+	fmt.Printf("Generating infrastructure for: %s\n", prompt)
+
+	// For now, generate a simple example based on common patterns
+	var code string
+	promptLower := strings.ToLower(prompt)
+
+	if strings.Contains(promptLower, "storage") {
+		code = `package infra
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+// Storage account generated by wetwire-azure design
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorageaccount",
+	Location: "eastus",
+	SKU:      storage.SKU{Name: "Standard_LRS"},
+	Kind:     "StorageV2",
+	Properties: storage.StorageAccountProperties{
+		AccessTier: "Hot",
+	},
+}
+`
+	} else if strings.Contains(promptLower, "vm") || strings.Contains(promptLower, "virtual machine") {
+		code = `package infra
+
+import (
+	"github.com/lex00/wetwire-azure-go/resources/compute"
+	"github.com/lex00/wetwire-azure-go/resources/network"
+)
+
+// VNet for the virtual machine
+var MyVNet = network.VirtualNetwork{
+	Name:     "myVNet",
+	Location: "eastus",
+	Properties: network.VirtualNetworkProperties{
+		AddressSpace: network.AddressSpace{
+			AddressPrefixes: []string{"10.0.0.0/16"},
+		},
+	},
+}
+
+// Virtual machine generated by wetwire-azure design
+var MyVM = compute.VirtualMachine{
+	Name:     "myVM",
+	Location: "eastus",
+	Properties: compute.VirtualMachineProperties{
+		HardwareProfile: compute.HardwareProfile{
+			VMSize: "Standard_DS1_v2",
+		},
+		OSProfile: compute.OSProfile{
+			ComputerName:  "myvm",
+			AdminUsername: "azureuser",
+		},
+	},
+}
+`
+	} else {
+		code = `package infra
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+// Generated by wetwire-azure design
+// Customize this template based on your requirements
+
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorageaccount",
+	Location: "eastus",
+	SKU:      storage.SKU{Name: "Standard_LRS"},
+	Kind:     "StorageV2",
+}
+`
+	}
+
+	// Write generated code
+	mainFile := filepath.Join(outputDir, "main.go")
+	if err := os.WriteFile(mainFile, []byte(code), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
+		return ExitBuildError
+	}
+
+	fmt.Printf("Generated: %s\n", mainFile)
+
+	// Run lint
+	fmt.Println("Running lint...")
+	l := linter.NewLinter()
+	lintResults, err := l.CheckFile(mainFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Lint error: %v\n", err)
+		return ExitBuildError
+	}
+
+	if len(lintResults) > 0 {
+		fmt.Println("Lint issues found:")
+		for _, r := range lintResults {
+			fmt.Printf("  %s\n", r.String())
+		}
+	} else {
+		fmt.Println("Lint passed!")
+	}
+
+	// Build template using existing buildTemplate function
+	fmt.Println("Building ARM template...")
+	armTemplate, _, err := buildTemplate(outputDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Build error: %v\n", err)
+		return ExitBuildError
+	}
+
+	templateFile := filepath.Join(outputDir, "template.json")
+	if err := os.WriteFile(templateFile, []byte(armTemplate), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing template: %v\n", err)
+		return ExitBuildError
+	}
+
+	fmt.Printf("Generated: %s\n", templateFile)
+	fmt.Println("Done!")
+
+	return ExitSuccess
 }

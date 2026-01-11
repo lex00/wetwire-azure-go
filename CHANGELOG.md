@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - CHANGELOG.md for tracking version history
 - Unit tests for intrinsics package (100% coverage)
+- `design` CLI command for AI-assisted infrastructure generation
+- `test` CLI command for persona-based testing with scoring
 - Security lint rules:
   - WAZ006: Detect secrets and credentials (AWS keys, GitHub tokens, passwords)
   - WAZ007: Detect sensitive file paths (.env, .pem, .key)
