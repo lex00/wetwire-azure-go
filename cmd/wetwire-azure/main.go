@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/lex00/wetwire-azure-go/internal/discover"
 	"github.com/lex00/wetwire-azure-go/internal/importer"
@@ -54,6 +55,10 @@ func run(args []string) int {
 		return runGraph(args[1:])
 	case "validate":
 		return runValidate(args[1:])
+	case "diff":
+		return runDiff(args[1:])
+	case "watch":
+		return runWatch(args[1:])
 	case "help", "-h", "--help":
 		printUsage()
 		return ExitSuccess
@@ -75,6 +80,8 @@ func printUsage() {
 	fmt.Println("  wetwire-azure init [directory]              Initialize new wetwire project")
 	fmt.Println("  wetwire-azure graph [path] [flags]          Generate resource dependency graph")
 	fmt.Println("  wetwire-azure validate <arm-file>           Validate ARM template JSON")
+	fmt.Println("  wetwire-azure diff [package-path] [flags]   Compare generated vs existing template")
+	fmt.Println("  wetwire-azure watch [package-path] [flags]  Watch source files and auto-rebuild")
 	fmt.Println("  wetwire-azure help                          Show this help message")
 	fmt.Println()
 	fmt.Println("Options for build:")
@@ -95,6 +102,15 @@ func printUsage() {
 	fmt.Println("Options for graph:")
 	fmt.Println("  -o, --output <file>       Output file path (default: stdout)")
 	fmt.Println("  --format <format>         Output format: dot, mermaid (default: dot)")
+	fmt.Println()
+	fmt.Println("Options for diff:")
+	fmt.Println("  --against <file>          Existing template to compare (required)")
+	fmt.Println("  --semantic                Use semantic comparison (ignore formatting, key order)")
+	fmt.Println("  --color                   Colorized output (default: true if terminal)")
+	fmt.Println()
+	fmt.Println("Options for watch:")
+	fmt.Println("  -o, --output <file>       Output file path")
+	fmt.Println("  --interval <duration>     Polling interval (default: 500ms)")
 	fmt.Println()
 	fmt.Println("Exit codes:")
 	fmt.Println("  0  Success")
@@ -855,4 +871,430 @@ func runValidate(args []string) int {
 	}
 
 	return ExitSuccess
+}
+
+// ANSI color codes for diff output
+const (
+	colorReset = "\033[0m"
+	colorRed   = "\033[31m"
+	colorGreen = "\033[32m"
+	colorCyan  = "\033[36m"
+)
+
+// runDiff executes the diff command and returns an exit code
+func runDiff(args []string) int {
+	fs := flag.NewFlagSet("diff", flag.ContinueOnError)
+
+	var againstFile string
+	var semantic bool
+	var color bool
+
+	fs.StringVar(&againstFile, "against", "", "Existing template to compare")
+	fs.BoolVar(&semantic, "semantic", false, "Use semantic comparison")
+	fs.BoolVar(&color, "color", isTerminal(), "Colorized output")
+
+	fs.SetOutput(os.Stderr)
+	if err := fs.Parse(args); err != nil {
+		return ExitInvalidArgument
+	}
+
+	// Require --against flag
+	if againstFile == "" {
+		fmt.Fprintf(os.Stderr, "Error: --against flag is required\n")
+		printUsage()
+		return ExitInvalidArgument
+	}
+
+	// Get package path (default to current directory)
+	packagePath := "."
+	if fs.NArg() > 0 {
+		packagePath = fs.Arg(0)
+	}
+
+	// Convert to absolute path
+	absPath, err := filepath.Abs(packagePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Check if source path exists
+	if _, err := os.Stat(absPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Read existing template
+	existingData, err := os.ReadFile(againstFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading against file: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Validate existing template is valid JSON
+	var existingJSON interface{}
+	if err := json.Unmarshal(existingData, &existingJSON); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing against file JSON: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Build the new template
+	newTemplateJSON, _, err := buildTemplate(absPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Build failed: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Parse new template
+	var newJSON interface{}
+	if err := json.Unmarshal([]byte(newTemplateJSON), &newJSON); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing generated template: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Perform diff
+	if semantic {
+		return performSemanticDiff(existingJSON, newJSON, color)
+	}
+	return performTextDiff(string(existingData), newTemplateJSON, color)
+}
+
+// isTerminal checks if stdout is a terminal
+func isTerminal() bool {
+	fi, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
+// performTextDiff performs a line-by-line text diff
+func performTextDiff(existing, generated string, useColor bool) int {
+	existingLines := strings.Split(strings.TrimSpace(existing), "\n")
+	generatedLines := strings.Split(strings.TrimSpace(generated), "\n")
+
+	// Simple line-by-line diff using LCS algorithm
+	diff := computeDiff(existingLines, generatedLines)
+
+	if len(diff) == 0 {
+		fmt.Println("No differences found.")
+		return ExitSuccess
+	}
+
+	// Print diff
+	for _, line := range diff {
+		if useColor {
+			switch {
+			case strings.HasPrefix(line, "+"):
+				fmt.Printf("%s%s%s\n", colorGreen, line, colorReset)
+			case strings.HasPrefix(line, "-"):
+				fmt.Printf("%s%s%s\n", colorRed, line, colorReset)
+			case strings.HasPrefix(line, "@"):
+				fmt.Printf("%s%s%s\n", colorCyan, line, colorReset)
+			default:
+				fmt.Println(line)
+			}
+		} else {
+			fmt.Println(line)
+		}
+	}
+
+	return ExitSuccess
+}
+
+// computeDiff computes a unified diff between two sets of lines
+func computeDiff(a, b []string) []string {
+	// Use a simple LCS-based diff algorithm
+	lcs := longestCommonSubsequence(a, b)
+	var result []string
+
+	i, j := 0, 0
+	for _, match := range lcs {
+		// Lines removed from a
+		for i < match.aIndex {
+			result = append(result, "- "+a[i])
+			i++
+		}
+		// Lines added to b
+		for j < match.bIndex {
+			result = append(result, "+ "+b[j])
+			j++
+		}
+		// Common line
+		result = append(result, "  "+a[i])
+		i++
+		j++
+	}
+
+	// Remaining lines in a (removed)
+	for i < len(a) {
+		result = append(result, "- "+a[i])
+		i++
+	}
+	// Remaining lines in b (added)
+	for j < len(b) {
+		result = append(result, "+ "+b[j])
+		j++
+	}
+
+	// Filter out common lines if only showing changes
+	var changes []string
+	for _, line := range result {
+		if strings.HasPrefix(line, "+") || strings.HasPrefix(line, "-") {
+			changes = append(changes, line)
+		}
+	}
+
+	return changes
+}
+
+// lcsMatch represents a matching line in LCS
+type lcsMatch struct {
+	aIndex int
+	bIndex int
+}
+
+// longestCommonSubsequence finds the LCS of two string slices
+func longestCommonSubsequence(a, b []string) []lcsMatch {
+	m, n := len(a), len(b)
+	if m == 0 || n == 0 {
+		return nil
+	}
+
+	// Build DP table
+	dp := make([][]int, m+1)
+	for i := range dp {
+		dp[i] = make([]int, n+1)
+	}
+
+	for i := 1; i <= m; i++ {
+		for j := 1; j <= n; j++ {
+			if a[i-1] == b[j-1] {
+				dp[i][j] = dp[i-1][j-1] + 1
+			} else {
+				if dp[i-1][j] > dp[i][j-1] {
+					dp[i][j] = dp[i-1][j]
+				} else {
+					dp[i][j] = dp[i][j-1]
+				}
+			}
+		}
+	}
+
+	// Backtrack to find LCS
+	var result []lcsMatch
+	i, j := m, n
+	for i > 0 && j > 0 {
+		if a[i-1] == b[j-1] {
+			result = append([]lcsMatch{{aIndex: i - 1, bIndex: j - 1}}, result...)
+			i--
+			j--
+		} else if dp[i-1][j] > dp[i][j-1] {
+			i--
+		} else {
+			j--
+		}
+	}
+
+	return result
+}
+
+// performSemanticDiff performs a semantic comparison (ignoring formatting and key order)
+func performSemanticDiff(existing, generated interface{}, useColor bool) int {
+	// Normalize both JSON structures
+	normalizedExisting := normalizeJSON(existing)
+	normalizedGenerated := normalizeJSON(generated)
+
+	// Compare normalized JSON
+	existingStr, _ := json.MarshalIndent(normalizedExisting, "", "  ")
+	generatedStr, _ := json.MarshalIndent(normalizedGenerated, "", "  ")
+
+	if string(existingStr) == string(generatedStr) {
+		fmt.Println("No differences found (semantic comparison).")
+		return ExitSuccess
+	}
+
+	// Show the diff with normalized versions
+	return performTextDiff(string(existingStr), string(generatedStr), useColor)
+}
+
+// normalizeJSON recursively normalizes a JSON structure (sorts map keys)
+func normalizeJSON(v interface{}) interface{} {
+	switch val := v.(type) {
+	case map[string]interface{}:
+		result := make(map[string]interface{})
+		for k, v := range val {
+			result[k] = normalizeJSON(v)
+		}
+		return result
+	case []interface{}:
+		result := make([]interface{}, len(val))
+		for i, v := range val {
+			result[i] = normalizeJSON(v)
+		}
+		return result
+	default:
+		return v
+	}
+}
+
+// runWatch executes the watch command and returns an exit code
+func runWatch(args []string) int {
+	fs := flag.NewFlagSet("watch", flag.ContinueOnError)
+
+	var outputFile string
+	var outputFileLong string
+	var interval string
+	var testRun bool
+
+	fs.StringVar(&outputFile, "o", "", "Output file path")
+	fs.StringVar(&outputFileLong, "output", "", "Output file path")
+	fs.StringVar(&interval, "interval", "500ms", "Polling interval")
+	fs.BoolVar(&testRun, "test-run", false, "Run once and exit (for testing)")
+
+	fs.SetOutput(os.Stderr)
+	if err := fs.Parse(args); err != nil {
+		return ExitInvalidArgument
+	}
+
+	// Use long form if short form not specified
+	if outputFile == "" && outputFileLong != "" {
+		outputFile = outputFileLong
+	}
+
+	// Parse interval
+	pollInterval, err := time.ParseDuration(interval)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: invalid interval '%s': %v\n", interval, err)
+		return ExitInvalidArgument
+	}
+
+	// Get package path (default to current directory)
+	packagePath := "."
+	if fs.NArg() > 0 {
+		packagePath = fs.Arg(0)
+	}
+
+	// Convert to absolute path
+	absPath, err := filepath.Abs(packagePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Check if source path exists
+	if _, err := os.Stat(absPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return ExitBuildError
+	}
+
+	fmt.Printf("Watching %s for changes (interval: %s)\n", absPath, pollInterval)
+
+	// Initial build
+	if err := doBuild(absPath, outputFile); err != nil {
+		fmt.Fprintf(os.Stderr, "Build error: %v\n", err)
+	} else {
+		fmt.Println("Build successful")
+	}
+
+	// For test mode, exit after initial build
+	if testRun {
+		return ExitSuccess
+	}
+
+	// Watch loop with debouncing
+	return watchLoop(absPath, outputFile, pollInterval)
+}
+
+// doBuild performs a build and writes output
+func doBuild(srcDir, outputFile string) error {
+	templateJSON, _, err := buildTemplate(srcDir)
+	if err != nil {
+		return err
+	}
+
+	if outputFile != "" {
+		if err := os.WriteFile(outputFile, []byte(templateJSON), 0644); err != nil {
+			return fmt.Errorf("error writing output file: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// watchLoop runs the main watch loop with polling and debouncing
+func watchLoop(srcDir, outputFile string, pollInterval time.Duration) int {
+	const debounceDelay = 300 * time.Millisecond
+
+	// Get initial file states
+	lastModTimes := getFileModTimes(srcDir)
+	var debounceTimer *time.Timer
+
+	for {
+		time.Sleep(pollInterval)
+
+		// Check for changes
+		currentModTimes := getFileModTimes(srcDir)
+		if hasChanges(lastModTimes, currentModTimes) {
+			lastModTimes = currentModTimes
+
+			// Debounce: cancel previous timer and start a new one
+			if debounceTimer != nil {
+				debounceTimer.Stop()
+			}
+
+			debounceTimer = time.AfterFunc(debounceDelay, func() {
+				fmt.Println("Changes detected, rebuilding...")
+				if err := doBuild(srcDir, outputFile); err != nil {
+					fmt.Fprintf(os.Stderr, "Build error: %v\n", err)
+				} else {
+					fmt.Println("Build successful")
+				}
+			})
+		}
+	}
+}
+
+// getFileModTimes returns a map of file paths to modification times
+func getFileModTimes(dir string) map[string]time.Time {
+	result := make(map[string]time.Time)
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Skip files we can't access
+		}
+		if info.IsDir() {
+			return nil
+		}
+		// Only watch Go files
+		if strings.HasSuffix(path, ".go") {
+			result[path] = info.ModTime()
+		}
+		return nil
+	})
+	if err != nil {
+		return result
+	}
+
+	return result
+}
+
+// hasChanges checks if any files have been modified, added, or removed
+func hasChanges(old, new map[string]time.Time) bool {
+	// Check for new or modified files
+	for path, newTime := range new {
+		oldTime, exists := old[path]
+		if !exists || !oldTime.Equal(newTime) {
+			return true
+		}
+	}
+
+	// Check for removed files
+	for path := range old {
+		if _, exists := new[path]; !exists {
+			return true
+		}
+	}
+
+	return false
 }
