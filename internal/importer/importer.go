@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"unicode"
 )
 
 // ARMTemplate represents a parsed ARM template.
@@ -316,13 +315,13 @@ func generateResourceCode(res ARMResource, resourceMap map[string]string) (strin
 	}
 
 	// Add SKU if present
-	if res.SKU != nil && len(res.SKU) > 0 {
+	if len(res.SKU) > 0 {
 		skuCode := generateStructCode(res.SKU, pkgName+".SKU", 1)
 		sb.WriteString(fmt.Sprintf("\tSKU: %s,\n", skuCode))
 	}
 
 	// Add tags if present
-	if res.Tags != nil && len(res.Tags) > 0 {
+	if len(res.Tags) > 0 {
 		sb.WriteString("\tTags: map[string]string{\n")
 		// Sort keys for deterministic output
 		var keys []string
@@ -337,7 +336,7 @@ func generateResourceCode(res ARMResource, resourceMap map[string]string) (strin
 	}
 
 	// Add properties if present
-	if res.Properties != nil && len(res.Properties) > 0 {
+	if len(res.Properties) > 0 {
 		propsCode := generatePropertiesCode(res.Properties, pkgName, typeName, 1)
 		sb.WriteString(fmt.Sprintf("\tProperties: %s,\n", propsCode))
 	}
@@ -504,12 +503,4 @@ func generateMapCode(data map[string]interface{}, indent int) string {
 	sb.WriteString(indentStr + "}")
 
 	return sb.String()
-}
-
-// isExported returns true if the field name starts with an uppercase letter.
-func isExported(name string) bool {
-	if name == "" {
-		return false
-	}
-	return unicode.IsUpper(rune(name[0]))
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/lex00/wetwire-azure-go/internal/importer"
 	"github.com/lex00/wetwire-azure-go/internal/linter"
 	"github.com/lex00/wetwire-azure-go/internal/template"
+	"github.com/lex00/wetwire-azure-go/internal/validator"
 )
 
 // Exit codes
@@ -51,6 +52,8 @@ func run(args []string) int {
 		return runInit(args[1:])
 	case "graph":
 		return runGraph(args[1:])
+	case "validate":
+		return runValidate(args[1:])
 	case "help", "-h", "--help":
 		printUsage()
 		return ExitSuccess
@@ -71,6 +74,7 @@ func printUsage() {
 	fmt.Println("  wetwire-azure list [path] [flags]           List discovered resources")
 	fmt.Println("  wetwire-azure init [directory]              Initialize new wetwire project")
 	fmt.Println("  wetwire-azure graph [path] [flags]          Generate resource dependency graph")
+	fmt.Println("  wetwire-azure validate <arm-file>           Validate ARM template JSON")
 	fmt.Println("  wetwire-azure help                          Show this help message")
 	fmt.Println()
 	fmt.Println("Options for build:")
@@ -795,5 +799,60 @@ func isResource(name string, resources []discover.DiscoveredResource) bool {
 }
 
 // runValidate executes the validate command and returns an exit code
+func runValidate(args []string) int {
+	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	if err := fs.Parse(args); err != nil {
+		return ExitInvalidArgument
+	}
 
-// runValidate executes the validate command and returns an exit code
+	// Require input file
+	if fs.NArg() < 1 {
+		fmt.Fprintf(os.Stderr, "Error: ARM template file is required\n")
+		printUsage()
+		return ExitInvalidArgument
+	}
+
+	inputFile := fs.Arg(0)
+
+	// Validate the template
+	v := validator.NewValidator()
+	results, err := v.ValidateFile(inputFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Validation failed: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Print results
+	if len(results) == 0 {
+		fmt.Println("Template is valid.")
+		return ExitSuccess
+	}
+
+	// Group results by severity
+	errorCount := 0
+	warningCount := 0
+	infoCount := 0
+
+	for _, result := range results {
+		fmt.Println(result.String())
+		switch result.Severity {
+		case validator.SeverityError:
+			errorCount++
+		case validator.SeverityWarning:
+			warningCount++
+		case validator.SeverityInfo:
+			infoCount++
+		}
+	}
+
+	fmt.Println()
+	fmt.Printf("Found %d error(s), %d warning(s), %d info(s)\n", errorCount, warningCount, infoCount)
+
+	// Exit with error code if errors were found
+	if errorCount > 0 {
+		return ExitBuildError
+	}
+
+	return ExitSuccess
+}

@@ -306,12 +306,12 @@ func convertARMResourceToStorageAccount(t *testing.T, armRes ARMResource) *stora
 	}
 
 	// Convert Tags
-	if armRes.Tags != nil && len(armRes.Tags) > 0 {
+	if len(armRes.Tags) > 0 {
 		sa.Tags = armRes.Tags
 	}
 
 	// Convert Properties
-	if armRes.Properties != nil && len(armRes.Properties) > 0 {
+	if len(armRes.Properties) > 0 {
 		props := &storage.StorageAccountProperties{}
 
 		if val, ok := armRes.Properties["supportsHttpsTrafficOnly"].(bool); ok {
@@ -371,8 +371,8 @@ func assertJSONEqualNoFail(t *testing.T, a, b map[string]interface{}, shouldEqua
 	bJSON, _ := json.Marshal(b)
 
 	var aNorm, bNorm interface{}
-	json.Unmarshal(aJSON, &aNorm)
-	json.Unmarshal(bJSON, &bNorm)
+	_ = json.Unmarshal(aJSON, &aNorm)
+	_ = json.Unmarshal(bJSON, &bNorm)
 
 	equal := assert.ObjectsAreEqual(aNorm, bNorm)
 
