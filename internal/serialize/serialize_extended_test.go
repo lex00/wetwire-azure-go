@@ -307,7 +307,7 @@ func TestParseJSONTag_OmitEmpty(t *testing.T) {
 func TestUnexportedFields(t *testing.T) {
 	type WithUnexported struct {
 		Public  string `json:"public"`
-		private string
+		private string //nolint:unused // intentionally testing unexported field handling
 	}
 
 	s := WithUnexported{Public: "visible"}
