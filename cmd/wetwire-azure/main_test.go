@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/lex00/wetwire-azure-go/internal/discover"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -863,4 +864,399 @@ var x = 42
 	})
 
 	assert.Contains(t, stdout, "Watching")
+}
+
+// TestRunList tests the list command with resources
+func TestRunList(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	goCode := `package main
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorage",
+	Location: "eastus",
+}
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runList([]string{tmpDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "MyStorage")
+	assert.Contains(t, stdout, "Microsoft.Storage/storageAccounts")
+}
+
+// TestRunList_JSON tests the list command with JSON output
+func TestRunList_JSON(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	goCode := `package main
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorage",
+	Location: "eastus",
+}
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runList([]string{"--format", "json", tmpDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "MyStorage")
+	assert.Contains(t, stdout, `"type"`)
+}
+
+// TestRunList_NoResources tests the list command with no resources
+func TestRunList_NoResources(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	goCode := `package main
+
+func main() {}
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runList([]string{tmpDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "No resources found")
+}
+
+// TestRunList_InvalidPath tests the list command with invalid path
+func TestRunList_InvalidPath(t *testing.T) {
+	_, stderr := captureOutput(func() {
+		exitCode := runList([]string{"/nonexistent/path"})
+		assert.Equal(t, ExitBuildError, exitCode)
+	})
+
+	assert.Contains(t, stderr, "Error")
+}
+
+// TestRunList_InvalidFormat tests the list command with invalid format
+func TestRunList_InvalidFormat(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	_, stderr := captureOutput(func() {
+		exitCode := runList([]string{"--format", "invalid", tmpDir})
+		assert.Equal(t, ExitInvalidArgument, exitCode)
+	})
+
+	assert.Contains(t, stderr, "unsupported format")
+}
+
+// TestRunInit tests the init command
+func TestRunInit(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectDir := filepath.Join(tmpDir, "myproject")
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runInit([]string{projectDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Created")
+
+	// Verify files were created
+	assert.FileExists(t, filepath.Join(projectDir, "go.mod"))
+	assert.FileExists(t, filepath.Join(projectDir, "main.go"))
+}
+
+// TestRunInit_NestedDirectory tests the init command with nested directory
+func TestRunInit_NestedDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectDir := filepath.Join(tmpDir, "projects", "myproject")
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runInit([]string{projectDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Created")
+	assert.FileExists(t, filepath.Join(projectDir, "main.go"))
+	assert.FileExists(t, filepath.Join(projectDir, "go.mod"))
+}
+
+// TestRunInit_ExistingGoMod tests the init command when go.mod already exists
+func TestRunInit_ExistingGoMod(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a go.mod file in the directory
+	err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module test"), 0644)
+	require.NoError(t, err)
+
+	_, stderr := captureOutput(func() {
+		exitCode := runInit([]string{tmpDir})
+		assert.Equal(t, ExitBuildError, exitCode)
+	})
+
+	assert.Contains(t, stderr, "go.mod already exists")
+}
+
+// TestRunInit_NoArgs tests the init command with no arguments (uses current directory)
+func TestRunInit_NoArgs(t *testing.T) {
+	// Create a temp directory and change to it
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	err = os.Chdir(tmpDir)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runInit([]string{})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Created")
+	assert.FileExists(t, filepath.Join(tmpDir, "go.mod"))
+	assert.FileExists(t, filepath.Join(tmpDir, "main.go"))
+}
+
+// TestRunGraph tests the graph command
+func TestRunGraph(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	goCode := `package main
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorage",
+	Location: "eastus",
+}
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runGraph([]string{tmpDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	// DOT format by default
+	assert.Contains(t, stdout, "digraph")
+	assert.Contains(t, stdout, "MyStorage")
+}
+
+// TestRunGraph_Mermaid tests the graph command with Mermaid output
+func TestRunGraph_Mermaid(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	goCode := `package main
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorage",
+	Location: "eastus",
+}
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runGraph([]string{"--format", "mermaid", tmpDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "graph TD")
+	assert.Contains(t, stdout, "MyStorage")
+}
+
+// TestRunGraph_NoResources tests the graph command with no resources
+func TestRunGraph_NoResources(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	goCode := `package main
+
+func main() {}
+`
+	err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(goCode), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runGraph([]string{tmpDir})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	// Empty graph
+	assert.Contains(t, stdout, "digraph")
+}
+
+// TestRunGraph_InvalidPath tests the graph command with invalid path
+func TestRunGraph_InvalidPath(t *testing.T) {
+	_, stderr := captureOutput(func() {
+		exitCode := runGraph([]string{"/nonexistent/path"})
+		assert.Equal(t, ExitBuildError, exitCode)
+	})
+
+	assert.Contains(t, stderr, "Error")
+}
+
+// TestRunGraph_InvalidFormat tests the graph command with invalid format
+func TestRunGraph_InvalidFormat(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	_, stderr := captureOutput(func() {
+		exitCode := runGraph([]string{"--format", "invalid", tmpDir})
+		assert.Equal(t, ExitInvalidArgument, exitCode)
+	})
+
+	assert.Contains(t, stderr, "unsupported format")
+}
+
+// TestRunImport tests the import command
+func TestRunImport(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	armTemplate := `{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2021-02-01",
+      "name": "mystorage",
+      "location": "eastus",
+      "sku": {"name": "Standard_LRS"},
+      "kind": "StorageV2"
+    }
+  ]
+}`
+	templateFile := filepath.Join(tmpDir, "template.json")
+	err := os.WriteFile(templateFile, []byte(armTemplate), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runImport([]string{templateFile})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "package")
+	assert.Contains(t, stdout, "storage")
+}
+
+// TestRunImport_WithOutput tests the import command with output file
+func TestRunImport_WithOutput(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	armTemplate := `{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2021-02-01",
+      "name": "mystorage",
+      "location": "eastus"
+    }
+  ]
+}`
+	templateFile := filepath.Join(tmpDir, "template.json")
+	outputFile := filepath.Join(tmpDir, "output.go")
+	err := os.WriteFile(templateFile, []byte(armTemplate), 0644)
+	require.NoError(t, err)
+
+	captureOutput(func() {
+		exitCode := runImport([]string{"-o", outputFile, templateFile})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.FileExists(t, outputFile)
+}
+
+// TestRunImport_WithPackage tests the import command with custom package name
+func TestRunImport_WithPackage(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	armTemplate := `{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": []
+}`
+	templateFile := filepath.Join(tmpDir, "template.json")
+	err := os.WriteFile(templateFile, []byte(armTemplate), 0644)
+	require.NoError(t, err)
+
+	stdout, _ := captureOutput(func() {
+		exitCode := runImport([]string{"--package", "myinfra", templateFile})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "package myinfra")
+}
+
+// TestRunImport_NoArgs tests the import command with no arguments
+func TestRunImport_NoArgs(t *testing.T) {
+	_, stderr := captureOutput(func() {
+		exitCode := runImport([]string{})
+		assert.Equal(t, ExitInvalidArgument, exitCode)
+	})
+
+	assert.Contains(t, stderr, "required")
+}
+
+// TestRunImport_InvalidFile tests the import command with non-existent file
+func TestRunImport_InvalidFile(t *testing.T) {
+	_, stderr := captureOutput(func() {
+		exitCode := runImport([]string{"/nonexistent/template.json"})
+		assert.Equal(t, ExitBuildError, exitCode)
+	})
+
+	assert.Contains(t, stderr, "Error")
+}
+
+// TestRunImport_InvalidJSON tests the import command with invalid JSON
+func TestRunImport_InvalidJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	templateFile := filepath.Join(tmpDir, "template.json")
+	err := os.WriteFile(templateFile, []byte("invalid json"), 0644)
+	require.NoError(t, err)
+
+	_, stderr := captureOutput(func() {
+		exitCode := runImport([]string{templateFile})
+		assert.Equal(t, ExitBuildError, exitCode)
+	})
+
+	assert.Contains(t, stderr, "Error")
+}
+
+// TestIsResource tests the isResource helper function
+func TestIsResource(t *testing.T) {
+	resources := []discover.DiscoveredResource{
+		{Name: "MyStorage", Type: "Microsoft.Storage/storageAccounts"},
+		{Name: "MyVM", Type: "Microsoft.Compute/virtualMachines"},
+	}
+
+	tests := []struct {
+		name     string
+		expected bool
+	}{
+		{"MyStorage", true},
+		{"MyVM", true},
+		{"Unknown", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isResource(tt.name, resources)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }
