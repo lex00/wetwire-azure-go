@@ -66,6 +66,15 @@ type Rule interface {
 	Check(file string) ([]LintResult, error)
 }
 
+// FixableRule defines an interface for rules that can automatically fix issues
+type FixableRule interface {
+	Rule
+	// CanFix returns true if this rule supports auto-fixing
+	CanFix() bool
+	// Fix applies auto-fix to the file and returns the fixed content
+	Fix(file string) (string, error)
+}
+
 // Linter runs lint rules on Go files
 type Linter struct {
 	rules []Rule

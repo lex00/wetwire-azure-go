@@ -210,14 +210,23 @@ var MyStorage = storage.StorageAccount{
 	Location: "East US",
 }
 `
-	err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(code), 0644)
+	testFile := filepath.Join(tmpDir, "main.go")
+	err := os.WriteFile(testFile, []byte(code), 0644)
 	require.NoError(t, err)
 
 	stdout, _ := captureOutput(func() {
 		runLint([]string{"--fix", tmpDir})
 	})
 
-	assert.Contains(t, stdout, "Auto-fix is not yet implemented")
+	// Verify auto-fix was applied
+	assert.Contains(t, stdout, "Fixed main.go with WAZ001")
+	assert.Contains(t, stdout, "Applied 1 fix(es)")
+
+	// Verify the file was actually fixed
+	fixedContent, err := os.ReadFile(testFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(fixedContent), `"eastus"`)
+	assert.NotContains(t, string(fixedContent), `"East US"`)
 }
 
 // TestRunLint_EmptyDirectory tests runLint with empty directory

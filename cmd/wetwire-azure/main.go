@@ -371,7 +371,43 @@ func runLint(args []string) int {
 	fmt.Printf("Found %d error(s) and %d warning(s)\n", errorCount, warningCount)
 
 	if *fixFlag {
-		fmt.Println("Note: Auto-fix is not yet implemented")
+		// Collect unique files with issues
+		filesToFix := make(map[string]bool)
+		for _, result := range results {
+			filesToFix[result.File] = true
+		}
+
+		// Apply fixes using fixable rules
+		fixedCount := 0
+		for file := range filesToFix {
+			for _, rule := range linter.AllRules() {
+				if fixable, ok := rule.(linter.FixableRule); ok && fixable.CanFix() {
+					// Check if this rule has issues for this file
+					ruleResults, err := rule.Check(file)
+					if err != nil {
+						continue
+					}
+					if len(ruleResults) > 0 {
+						fixed, err := fixable.Fix(file)
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "Error fixing %s with %s: %v\n", file, rule.ID(), err)
+							continue
+						}
+						if err := os.WriteFile(file, []byte(fixed), 0644); err != nil {
+							fmt.Fprintf(os.Stderr, "Error writing fixed file %s: %v\n", file, err)
+							continue
+						}
+						fixedCount++
+						fmt.Printf("Fixed %s with %s\n", filepath.Base(file), rule.ID())
+					}
+				}
+			}
+		}
+		if fixedCount > 0 {
+			fmt.Printf("\nApplied %d fix(es)\n", fixedCount)
+		} else {
+			fmt.Println("\nNo auto-fixes available for these issues")
+		}
 	}
 
 	// Exit with error code if issues were found

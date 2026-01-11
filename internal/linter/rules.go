@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
 	"strings"
 )
 
@@ -80,6 +81,61 @@ func (r *WAZ001) Check(file string) ([]LintResult, error) {
 	})
 
 	return results, nil
+}
+
+// CanFix returns true since WAZ001 supports auto-fixing
+func (r *WAZ001) CanFix() bool {
+	return true
+}
+
+// Fix applies auto-fix to normalize location string literals
+func (r *WAZ001) Fix(file string) (string, error) {
+	fset := token.NewFileSet()
+	node, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
+	if err != nil {
+		return "", err
+	}
+
+	// Read the original file to preserve formatting
+	content, err := os.ReadFile(file)
+	if err != nil {
+		return "", err
+	}
+
+	result := string(content)
+
+	ast.Inspect(node, func(n ast.Node) bool {
+		// Look for key-value pairs in struct literals
+		kv, ok := n.(*ast.KeyValueExpr)
+		if !ok {
+			return true
+		}
+
+		// Check if the key is "Location"
+		if ident, ok := kv.Key.(*ast.Ident); ok && ident.Name == "Location" {
+			// Check if the value is a string literal
+			if lit, ok := kv.Value.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+				locationValue := strings.Trim(lit.Value, `"`)
+				// Skip ARM template expressions (e.g., "[resourceGroup().location]")
+				if strings.HasPrefix(locationValue, "[") && strings.HasSuffix(locationValue, "]") {
+					return true
+				}
+				// Check for invalid location formats (spaces, uppercase)
+				if strings.Contains(locationValue, " ") || hasUpperCase(locationValue) {
+					// Normalize location: lowercase and remove spaces
+					normalized := strings.ToLower(strings.ReplaceAll(locationValue, " ", ""))
+					// Replace in the result string
+					oldLit := fmt.Sprintf(`"%s"`, locationValue)
+					newLit := fmt.Sprintf(`"%s"`, normalized)
+					result = strings.Replace(result, oldLit, newLit, 1)
+				}
+			}
+		}
+
+		return true
+	})
+
+	return result, nil
 }
 
 // WAZ002 checks for use of direct references instead of explicit resourceId() calls
