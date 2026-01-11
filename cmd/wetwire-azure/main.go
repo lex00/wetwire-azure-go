@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/lex00/wetwire-azure-go/internal/discover"
+	"github.com/lex00/wetwire-azure-go/internal/importer"
 	"github.com/lex00/wetwire-azure-go/internal/linter"
 	"github.com/lex00/wetwire-azure-go/internal/template"
 )
@@ -39,6 +40,8 @@ func run(args []string) int {
 	switch command {
 	case "build":
 		return runBuild(args[1:])
+	case "import":
+		return runImport(args[1:])
 	case "lint":
 		return runLint(args[1:])
 	case "help", "-h", "--help":
@@ -56,6 +59,7 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("Usage:")
 	fmt.Println("  wetwire-azure build [package-path] [flags]  Build ARM template from Go code")
+	fmt.Println("  wetwire-azure import <arm-file> [flags]     Import ARM JSON to Go code")
 	fmt.Println("  wetwire-azure lint [path]                   Lint infrastructure code")
 	fmt.Println("  wetwire-azure help                          Show this help message")
 	fmt.Println()
@@ -63,6 +67,10 @@ func printUsage() {
 	fmt.Println("  -o, --output <file>       Output file path (default: stdout)")
 	fmt.Println("  --format <format>         Output format: arm (default: arm)")
 	fmt.Println("  --parameters-file <file>  Write parameters to separate file")
+	fmt.Println()
+	fmt.Println("Options for import:")
+	fmt.Println("  -o, --output <file>       Output file path (default: stdout)")
+	fmt.Println("  --package <name>          Package name for generated code (default: infra)")
 	fmt.Println()
 	fmt.Println("Options for lint:")
 	fmt.Println("  --fix                     Auto-fix issues where possible (not yet implemented)")
@@ -189,6 +197,71 @@ func generateParametersFile() string {
 
 	jsonBytes, _ := json.MarshalIndent(params, "", "  ")
 	return string(jsonBytes)
+}
+
+// runImport executes the import command and returns an exit code
+func runImport(args []string) int {
+	fs := flag.NewFlagSet("import", flag.ContinueOnError)
+
+	var outputFile string
+	var outputFileLong string
+	var packageName string
+
+	fs.StringVar(&outputFile, "o", "", "Output file path")
+	fs.StringVar(&outputFileLong, "output", "", "Output file path")
+	fs.StringVar(&packageName, "package", "infra", "Package name for generated code")
+
+	fs.SetOutput(os.Stderr)
+	if err := fs.Parse(args); err != nil {
+		return ExitInvalidArgument
+	}
+
+	// Use long form if short form not specified
+	if outputFile == "" && outputFileLong != "" {
+		outputFile = outputFileLong
+	}
+
+	// Require input file
+	if fs.NArg() < 1 {
+		fmt.Fprintf(os.Stderr, "Error: ARM template file is required\n")
+		printUsage()
+		return ExitInvalidArgument
+	}
+
+	inputFile := fs.Arg(0)
+
+	// Read input file
+	data, err := os.ReadFile(inputFile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading file: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Parse ARM template
+	template, err := importer.ParseARMTemplate(data)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing ARM template: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Generate Go code
+	goCode, err := importer.GenerateGoCode(template, packageName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error generating Go code: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Write output
+	if outputFile != "" {
+		if err := os.WriteFile(outputFile, []byte(goCode), 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing output file: %v\n", err)
+			return ExitBuildError
+		}
+	} else {
+		fmt.Println(goCode)
+	}
+
+	return ExitSuccess
 }
 
 // runLint executes the lint command and returns an exit code
