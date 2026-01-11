@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/lex00/wetwire-azure-go/internal/discover"
 	"github.com/lex00/wetwire-azure-go/internal/importer"
@@ -44,6 +45,12 @@ func run(args []string) int {
 		return runImport(args[1:])
 	case "lint":
 		return runLint(args[1:])
+	case "list":
+		return runList(args[1:])
+	case "init":
+		return runInit(args[1:])
+	case "graph":
+		return runGraph(args[1:])
 	case "help", "-h", "--help":
 		printUsage()
 		return ExitSuccess
@@ -61,6 +68,9 @@ func printUsage() {
 	fmt.Println("  wetwire-azure build [package-path] [flags]  Build ARM template from Go code")
 	fmt.Println("  wetwire-azure import <arm-file> [flags]     Import ARM JSON to Go code")
 	fmt.Println("  wetwire-azure lint [path]                   Lint infrastructure code")
+	fmt.Println("  wetwire-azure list [path] [flags]           List discovered resources")
+	fmt.Println("  wetwire-azure init [directory]              Initialize new wetwire project")
+	fmt.Println("  wetwire-azure graph [path] [flags]          Generate resource dependency graph")
 	fmt.Println("  wetwire-azure help                          Show this help message")
 	fmt.Println()
 	fmt.Println("Options for build:")
@@ -74,6 +84,13 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("Options for lint:")
 	fmt.Println("  --fix                     Auto-fix issues where possible (not yet implemented)")
+	fmt.Println()
+	fmt.Println("Options for list:")
+	fmt.Println("  --format <format>         Output format: table, json (default: table)")
+	fmt.Println()
+	fmt.Println("Options for graph:")
+	fmt.Println("  -o, --output <file>       Output file path (default: stdout)")
+	fmt.Println("  --format <format>         Output format: dot, mermaid (default: dot)")
 	fmt.Println()
 	fmt.Println("Exit codes:")
 	fmt.Println("  0  Success")
@@ -344,3 +361,439 @@ func runLint(args []string) int {
 
 	return ExitSuccess
 }
+
+// runList executes the list command and returns an exit code
+func runList(args []string) int {
+	fs := flag.NewFlagSet("list", flag.ContinueOnError)
+
+	var format string
+	fs.StringVar(&format, "format", "table", "Output format (table, json)")
+
+	fs.SetOutput(os.Stderr)
+	if err := fs.Parse(args); err != nil {
+		return ExitInvalidArgument
+	}
+
+	// Validate format
+	if format != "table" && format != "json" {
+		fmt.Fprintf(os.Stderr, "Error: unsupported format '%s'. Supported formats: table, json\n", format)
+		return ExitInvalidArgument
+	}
+
+	// Default to current directory if no path provided
+	path := "."
+	if fs.NArg() > 0 {
+		path = fs.Arg(0)
+	}
+
+	// Convert to absolute path
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Check if path exists
+	if _, err := os.Stat(absPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Discover resources
+	resources, err := discover.DiscoverResources(absPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Discovery failed: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Output based on format
+	if format == "json" {
+		return outputListJSON(resources)
+	}
+	return outputListTable(resources)
+}
+
+// outputListJSON outputs resources in JSON format
+func outputListJSON(resources []discover.DiscoveredResource) int {
+	type jsonResource struct {
+		Name         string   `json:"name"`
+		Type         string   `json:"type"`
+		File         string   `json:"file"`
+		Line         int      `json:"line"`
+		Dependencies []string `json:"dependencies,omitempty"`
+	}
+
+	jsonResources := make([]jsonResource, len(resources))
+	for i, res := range resources {
+		jsonResources[i] = jsonResource{
+			Name:         res.Name,
+			Type:         res.Type,
+			File:         res.File,
+			Line:         res.Line,
+			Dependencies: res.Dependencies,
+		}
+	}
+
+	output, err := json.MarshalIndent(jsonResources, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error generating JSON: %v\n", err)
+		return ExitBuildError
+	}
+
+	fmt.Println(string(output))
+	return ExitSuccess
+}
+
+// outputListTable outputs resources in table format
+func outputListTable(resources []discover.DiscoveredResource) int {
+	if len(resources) == 0 {
+		fmt.Println("NAME  TYPE  FILE  LINE")
+		fmt.Println("----  ----  ----  ----")
+		fmt.Println("No resources found.")
+		return ExitSuccess
+	}
+
+	// Calculate column widths
+	maxName := len("NAME")
+	maxType := len("TYPE")
+	maxFile := len("FILE")
+
+	for _, res := range resources {
+		if len(res.Name) > maxName {
+			maxName = len(res.Name)
+		}
+		if len(res.Type) > maxType {
+			maxType = len(res.Type)
+		}
+		fileName := filepath.Base(res.File)
+		if len(fileName) > maxFile {
+			maxFile = len(fileName)
+		}
+	}
+
+	// Print header
+	fmt.Printf("%-*s  %-*s  %-*s  LINE\n", maxName, "NAME", maxType, "TYPE", maxFile, "FILE")
+	fmt.Printf("%s  %s  %s  ----\n",
+		strings.Repeat("-", maxName),
+		strings.Repeat("-", maxType),
+		strings.Repeat("-", maxFile))
+
+	// Print resources
+	for _, res := range resources {
+		fileName := filepath.Base(res.File)
+		fmt.Printf("%-*s  %-*s  %-*s  %d\n",
+			maxName, res.Name,
+			maxType, res.Type,
+			maxFile, fileName,
+			res.Line)
+	}
+
+	return ExitSuccess
+}
+
+// runInit executes the init command and returns an exit code
+func runInit(args []string) int {
+	fs := flag.NewFlagSet("init", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	if err := fs.Parse(args); err != nil {
+		return ExitInvalidArgument
+	}
+
+	// Default to current directory if no path provided
+	targetDir := "."
+	if fs.NArg() > 0 {
+		targetDir = fs.Arg(0)
+	}
+
+	// Convert to absolute path
+	absPath, err := filepath.Abs(targetDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(absPath, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating directory: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Check if go.mod already exists
+	goModPath := filepath.Join(absPath, "go.mod")
+	if _, err := os.Stat(goModPath); err == nil {
+		fmt.Fprintf(os.Stderr, "Error: go.mod already exists in %s\n", absPath)
+		return ExitBuildError
+	}
+
+	// Get module name from directory name
+	moduleName := filepath.Base(absPath)
+
+	// Create go.mod
+	goModContent := fmt.Sprintf(`module %s
+
+go 1.21
+
+require github.com/lex00/wetwire-azure-go v0.1.0
+`, moduleName)
+
+	if err := os.WriteFile(goModPath, []byte(goModContent), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing go.mod: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Create main.go
+	mainGoContent := `package main
+
+import (
+	"github.com/lex00/wetwire-azure-go/resources/storage"
+)
+
+// Example storage account resource
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorageaccount",
+	Location: "eastus",
+	SKU: storage.SKU{
+		Name: "Standard_LRS",
+	},
+	Kind: "StorageV2",
+	Properties: storage.StorageAccountProperties{
+		AccessTier: "Hot",
+	},
+}
+`
+	mainGoPath := filepath.Join(absPath, "main.go")
+	if err := os.WriteFile(mainGoPath, []byte(mainGoContent), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing main.go: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Create .gitignore
+	gitignoreContent := `# Build outputs
+*.json
+*.bicep
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+`
+	gitignorePath := filepath.Join(absPath, ".gitignore")
+	if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing .gitignore: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Create README.md
+	readmeContent := fmt.Sprintf(`# %s
+
+Azure infrastructure as code using wetwire-azure-go.
+
+## Getting Started
+
+1. Install dependencies:
+   `+"```bash"+`
+   go mod download
+   `+"```"+`
+
+2. Build the ARM template:
+   `+"```bash"+`
+   wetwire-azure build -o template.json
+   `+"```"+`
+
+3. Deploy to Azure:
+   `+"```bash"+`
+   az deployment group create \
+     --resource-group <your-rg> \
+     --template-file template.json
+   `+"```"+`
+
+## Available Commands
+
+- `+"`wetwire-azure build`"+` - Generate ARM template from Go code
+- `+"`wetwire-azure list`"+` - List all discovered resources
+- `+"`wetwire-azure graph`"+` - Generate dependency graph
+- `+"`wetwire-azure lint`"+` - Lint infrastructure code
+
+## Learn More
+
+- [wetwire-azure-go Documentation](https://github.com/lex00/wetwire-azure-go)
+- [Azure ARM Templates](https://docs.microsoft.com/en-us/azure/azure-resource-manager/templates/)
+`, moduleName)
+
+	readmePath := filepath.Join(absPath, "README.md")
+	if err := os.WriteFile(readmePath, []byte(readmeContent), 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing README.md: %v\n", err)
+		return ExitBuildError
+	}
+
+	fmt.Printf("Initialized wetwire-azure project in %s\n", absPath)
+	fmt.Println("\nCreated files:")
+	fmt.Println("  - go.mod")
+	fmt.Println("  - main.go")
+	fmt.Println("  - .gitignore")
+	fmt.Println("  - README.md")
+	fmt.Println("\nNext steps:")
+	fmt.Println("  1. cd", absPath)
+	fmt.Println("  2. go mod download")
+	fmt.Println("  3. wetwire-azure build")
+
+	return ExitSuccess
+}
+
+// runGraph executes the graph command and returns an exit code
+func runGraph(args []string) int {
+	fs := flag.NewFlagSet("graph", flag.ContinueOnError)
+
+	var outputFile string
+	var outputFileLong string
+	var format string
+
+	fs.StringVar(&outputFile, "o", "", "Output file path")
+	fs.StringVar(&outputFileLong, "output", "", "Output file path")
+	fs.StringVar(&format, "format", "dot", "Output format (dot, mermaid)")
+
+	fs.SetOutput(os.Stderr)
+	if err := fs.Parse(args); err != nil {
+		return ExitInvalidArgument
+	}
+
+	// Use long form if short form not specified
+	if outputFile == "" && outputFileLong != "" {
+		outputFile = outputFileLong
+	}
+
+	// Validate format
+	if format != "dot" && format != "mermaid" {
+		fmt.Fprintf(os.Stderr, "Error: unsupported format '%s'. Supported formats: dot, mermaid\n", format)
+		return ExitInvalidArgument
+	}
+
+	// Default to current directory if no path provided
+	path := "."
+	if fs.NArg() > 0 {
+		path = fs.Arg(0)
+	}
+
+	// Convert to absolute path
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error resolving path: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Check if path exists
+	if _, err := os.Stat(absPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Discover resources
+	resources, err := discover.DiscoverResources(absPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Discovery failed: %v\n", err)
+		return ExitBuildError
+	}
+
+	// Generate graph
+	var graphOutput string
+	if format == "mermaid" {
+		graphOutput = generateMermaidGraph(resources)
+	} else {
+		graphOutput = generateDOTGraph(resources)
+	}
+
+	// Write output
+	if outputFile != "" {
+		if err := os.WriteFile(outputFile, []byte(graphOutput), 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing output file: %v\n", err)
+			return ExitBuildError
+		}
+		fmt.Printf("Graph written to %s\n", outputFile)
+	} else {
+		fmt.Println(graphOutput)
+	}
+
+	return ExitSuccess
+}
+
+// generateDOTGraph generates a Graphviz DOT format graph
+func generateDOTGraph(resources []discover.DiscoveredResource) string {
+	var sb strings.Builder
+
+	sb.WriteString("digraph \"Azure Resources\" {\n")
+	sb.WriteString("  rankdir=TB;\n")
+	sb.WriteString("  node [shape=box, style=rounded];\n")
+	sb.WriteString("\n")
+
+	// Add nodes
+	for _, res := range resources {
+		// Escape quotes in labels
+		label := fmt.Sprintf("%s\\n%s", res.Name, res.Type)
+		sb.WriteString(fmt.Sprintf("  \"%s\" [label=\"%s\"];\n", res.Name, label))
+	}
+
+	// Add edges (dependencies)
+	sb.WriteString("\n")
+	for _, res := range resources {
+		for _, dep := range res.Dependencies {
+			// Check if dependency is a resource
+			if isResource(dep, resources) {
+				sb.WriteString(fmt.Sprintf("  \"%s\" -> \"%s\";\n", res.Name, dep))
+			}
+		}
+	}
+
+	sb.WriteString("}\n")
+	return sb.String()
+}
+
+// generateMermaidGraph generates a Mermaid format graph
+func generateMermaidGraph(resources []discover.DiscoveredResource) string {
+	var sb strings.Builder
+
+	sb.WriteString("graph TD\n")
+
+	// Add nodes
+	for _, res := range resources {
+		// Sanitize for Mermaid (replace spaces and special chars)
+		label := fmt.Sprintf("%s<br/>%s", res.Name, res.Type)
+		sb.WriteString(fmt.Sprintf("  %s[\"%s\"]\n", res.Name, label))
+	}
+
+	// Add edges (dependencies)
+	for _, res := range resources {
+		for _, dep := range res.Dependencies {
+			// Check if dependency is a resource
+			if isResource(dep, resources) {
+				sb.WriteString(fmt.Sprintf("  %s --> %s\n", res.Name, dep))
+			}
+		}
+	}
+
+	return sb.String()
+}
+
+// isResource checks if a name corresponds to a discovered resource
+func isResource(name string, resources []discover.DiscoveredResource) bool {
+	for _, res := range resources {
+		if res.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// runValidate executes the validate command and returns an exit code
+
+// runValidate executes the validate command and returns an exit code
