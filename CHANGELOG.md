@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - CHANGELOG.md for tracking version history
 - Unit tests for intrinsics package (100% coverage)
+- Security lint rules:
+  - WAZ006: Detect secrets and credentials (AWS keys, GitHub tokens, passwords)
+  - WAZ007: Detect sensitive file paths (.env, .pem, .key)
+  - WAZ008: Detect insecure defaults (HTTP, public access)
 
 ## [1.0.0] - 2026-01-11
 

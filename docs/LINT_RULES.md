@@ -30,12 +30,13 @@ All rules use the **WAZ** prefix (Wetwire AZure) followed by a 3-digit number:
 | Rule | Description | Severity | Auto-fix |
 |------|-------------|----------|----------|
 | WAZ001 | Use location constants | warning | No |
-| WAZ002 | Use intrinsic types | warning | No |
-| WAZ003 | Extract inline property types | warning | No |
-| WAZ004 | Use typed structs | warning | No |
-| WAZ005 | Detect duplicate resource names | error | No |
-| WAZ006 | Use storage account naming conventions | error | No |
-| WAZ007 | Avoid hardcoded secrets | error | No |
+| WAZ002 | Use direct references | warning | No |
+| WAZ003 | Extract nested configurations | warning | No |
+| WAZ004 | Detect duplicate resource names | error | No |
+| WAZ005 | Detect circular dependencies | error | No |
+| WAZ006 | Detect secrets and credentials | error | No |
+| WAZ007 | Detect sensitive file paths | warning | No |
+| WAZ008 | Detect insecure defaults | warning | No |
 
 ## Planned Rules
 
