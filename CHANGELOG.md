@@ -17,6 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Lint auto-fix support via `--fix` flag:
   - WAZ001: Auto-fix location format (normalize to lowercase, remove spaces)
   - FixableRule interface for implementing auto-fix in custom rules
+- README badges (CI, Go Reference, Go Report Card, License)
+- Documentation per wetwire spec:
+  - docs/IMPORT_WORKFLOW.md - ARM template import guide
+  - docs/ADOPTION.md - Migration guide from Terraform/CDK/Pulumi
+  - docs/DEVELOPERS.md - Contributor guidelines
+  - docs/VERSIONING.md - Version compatibility information
+  - docs/CODEGEN.md - Code generation pipeline documentation
+  - examples/README.md - Examples directory overview
+
+### Changed
+- Moved QUICK_START.md to docs/ per spec requirements
 
 ## [1.0.0] - 2026-01-11
 
