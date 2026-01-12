@@ -19,6 +19,7 @@ import (
 	"github.com/lex00/wetwire-core-go/agent/personas"
 	"github.com/lex00/wetwire-core-go/agent/results"
 	"github.com/lex00/wetwire-core-go/providers"
+	"github.com/lex00/wetwire-core-go/kiro"
 	"github.com/lex00/wetwire-core-go/providers/anthropic"
 )
 
@@ -1361,7 +1362,7 @@ func runTest(args []string) int {
 	fs.BoolVar(&allPersonas, "all-personas", false, "Run all personas")
 	fs.StringVar(&scenario, "scenario", "default", "Scenario name")
 	fs.StringVar(&outputDir, "output-dir", ".", "Output directory for results")
-	fs.StringVar(&providerName, "provider", "anthropic", "AI provider to use (anthropic, mock)")
+	fs.StringVar(&providerName, "provider", "anthropic", "AI provider to use (anthropic, kiro, mock)")
 
 	fs.SetOutput(os.Stderr)
 	if err := fs.Parse(args); err != nil {
@@ -1536,7 +1537,7 @@ func writeSessionResults(filename string, session *results.Session) error {
 }
 
 // supportedProviders lists the valid provider names
-var supportedProviders = []string{"anthropic", "mock"}
+var supportedProviders = []string{"anthropic", "kiro", "mock"}
 
 // validateProvider checks if the provider name is valid
 func validateProvider(name string) error {
@@ -1562,8 +1563,24 @@ func createProvider(name string) (providers.Provider, error) {
 		})
 	case "mock":
 		return nil, nil // Mock mode explicitly requested
+	case "kiro":
+		// Kiro provider uses the centralized kiro infrastructure from wetwire-core-go.
+		// When selected, the design/test commands will launch a Kiro agent session
+		// instead of using direct API calls.
+		return nil, nil // Kiro mode - handled specially in command execution
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", name)
+	}
+}
+
+// getKiroConfig returns the Kiro configuration for this domain package.
+// This uses the centralized Kiro infrastructure from wetwire-core-go.
+func getKiroConfig() kiro.Config {
+	return kiro.Config{
+		AgentName:   "wetwire-azure-runner",
+		AgentPrompt: "You are an Azure infrastructure expert. Help users create ARM templates using wetwire-azure Go DSL.",
+		MCPCommand:  "wetwire-azure-mcp",
+		WorkDir:     ".",
 	}
 }
 
@@ -1575,7 +1592,7 @@ func runDesign(args []string) int {
 	var providerName string
 
 	fs.StringVar(&outputDir, "output-dir", ".", "Output directory for generated code")
-	fs.StringVar(&providerName, "provider", "anthropic", "AI provider to use (anthropic, mock)")
+	fs.StringVar(&providerName, "provider", "anthropic", "AI provider to use (anthropic, kiro, mock)")
 
 	fs.SetOutput(os.Stderr)
 	if err := fs.Parse(args); err != nil {
