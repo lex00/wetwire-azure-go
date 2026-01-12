@@ -8,6 +8,9 @@ This document indexes the example projects demonstrating wetwire-azure-go usage.
 |---------|-------------|-----------|
 | [storage-account](examples/storage-account/) | Basic storage account deployment | StorageAccount |
 | [virtual-machine](examples/virtual-machine/) | Linux VM with managed disk | VirtualMachine |
+| [enterprise-app](examples/enterprise-app/) | Multi-tier enterprise application | VNet, NSG, VMs, Storage |
+| [parameters-and-outputs](examples/parameters-and-outputs/) | ARM intrinsics and parameters | Storage, NIC with intrinsics |
+| [security-best-practices](examples/security-best-practices/) | Azure security patterns | NSG, VNet, Storage with security |
 
 ## Running Examples
 
@@ -164,3 +167,43 @@ var MyStorageAccount = storage.StorageAccount{
     Name: "mystorageaccount",  // lowercase
 }
 ```
+
+## Advanced Examples
+
+### Enterprise Application
+
+Location: `examples/enterprise-app/`
+
+A multi-tier application demonstrating:
+- Virtual Network with three subnets (web, app, data tiers)
+- Network Security Groups with security rules
+- Zone-redundant Public IP
+- Virtual Machines for web and app tiers
+- Storage accounts with network restrictions
+
+See [enterprise-app README](examples/enterprise-app/README.md) for details.
+
+### Parameters and Outputs
+
+Location: `examples/parameters-and-outputs/`
+
+Demonstrates ARM template intrinsic functions:
+- `Parameters()` for ARM template parameters
+- `ResourceGroup()` for resource group properties
+- `ResourceId()` for resource references
+- `Variables()` for ARM template variables
+- Environment-based configuration patterns
+
+See [parameters-and-outputs README](examples/parameters-and-outputs/README.md) for details.
+
+### Security Best Practices
+
+Location: `examples/security-best-practices/`
+
+Demonstrates Azure security patterns:
+- NSGs with deny-all default rules
+- Storage accounts with encryption and access controls
+- Service endpoints for secure PaaS access
+- Defense in depth with multiple security layers
+
+See [security-best-practices README](examples/security-best-practices/README.md) for details.
