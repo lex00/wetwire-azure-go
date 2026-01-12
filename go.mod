@@ -3,7 +3,7 @@ module github.com/lex00/wetwire-azure-go
 go 1.23.0
 
 require (
-	github.com/lex00/wetwire-core-go v1.3.0
+	github.com/lex00/wetwire-core-go v1.4.0
 	github.com/stretchr/testify v1.11.1
 )
 
