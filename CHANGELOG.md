@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `network.NetworkInterface` - Azure Network Interface with IP configurations
   - `network.PublicIPAddress` - Azure Public IP Address with SKU and DNS settings
   - `network.NetworkSecurityGroup` - Azure NSG with security rules
+- Unit tests for resource packages:
+  - `resources/storage` - 100% coverage for StorageAccount and related types
+  - `resources/compute` - 100% coverage for VirtualMachine and related types
 - `test` CLI command for persona-based testing with scoring
 - Security lint rules:
   - WAZ006: Detect secrets and credentials (AWS keys, GitHub tokens, passwords)
