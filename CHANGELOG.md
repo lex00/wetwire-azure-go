@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CHANGELOG.md for tracking version history
 - Unit tests for intrinsics package (100% coverage)
 - `design` CLI command for AI-assisted infrastructure generation
+- Provider abstraction layer for AI backends:
+  - `--provider` flag for `design` and `test` commands
+  - Anthropic provider integration via `wetwire-core-go/providers`
+  - Automatic fallback to mock mode when no API key is set
+  - Environment variable support (`ANTHROPIC_API_KEY`)
 - Network resource types (`resources/network` package):
   - `network.VirtualNetwork` - Azure Virtual Network with address space and subnets
   - `network.Subnet` - Azure Subnet with NSG and service endpoint support

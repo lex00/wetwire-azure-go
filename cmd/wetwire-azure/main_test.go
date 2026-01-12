@@ -1363,3 +1363,54 @@ func TestRunDesign_NoPrompt(t *testing.T) {
 
 	assert.Contains(t, stderr, "prompt required")
 }
+
+// TestRunDesign_WithProviderFlag tests the design command with --provider flag
+func TestRunDesign_WithProviderFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Without API key, should fall back to mock behavior
+	stdout, _ := captureOutput(func() {
+		exitCode := runDesign([]string{"--provider", "anthropic", "--output-dir", tmpDir, "create a storage account"})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Generating infrastructure")
+	assert.FileExists(t, filepath.Join(tmpDir, "main.go"))
+}
+
+// TestRunDesign_InvalidProvider tests the design command with invalid provider
+func TestRunDesign_InvalidProvider(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	_, stderr := captureOutput(func() {
+		exitCode := runDesign([]string{"--provider", "invalid_provider", "--output-dir", tmpDir, "create a storage"})
+		assert.Equal(t, ExitInvalidArgument, exitCode)
+	})
+
+	assert.Contains(t, stderr, "unknown provider")
+}
+
+// TestRunTest_WithProviderFlag tests the test command with --provider flag
+func TestRunTest_WithProviderFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Without API key, should fall back to mock behavior
+	stdout, _ := captureOutput(func() {
+		exitCode := runTest([]string{"--provider", "anthropic", "--persona", "beginner", "--output-dir", tmpDir, "create a storage account"})
+		assert.Equal(t, ExitSuccess, exitCode)
+	})
+
+	assert.Contains(t, stdout, "Running test with persona: beginner")
+}
+
+// TestRunTest_InvalidProvider tests the test command with invalid provider
+func TestRunTest_InvalidProvider(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	_, stderr := captureOutput(func() {
+		exitCode := runTest([]string{"--provider", "invalid_provider", "--persona", "beginner", "--output-dir", tmpDir, "test"})
+		assert.Equal(t, ExitInvalidArgument, exitCode)
+	})
+
+	assert.Contains(t, stderr, "unknown provider")
+}
