@@ -122,8 +122,8 @@ func runDesignKiro(prompt, outputDir string) error {
 	fmt.Println("Starting Kiro CLI design session...")
 	fmt.Println()
 
-	// Launch Kiro CLI chat (handles config installation internally)
-	return kiro.LaunchChat("wetwire-azure-runner", prompt)
+	// Launch Kiro CLI chat using simplified Launch function
+	return kiro.Launch(prompt)
 }
 
 // runDesignAnthropic runs an interactive design session using the Anthropic API directly.

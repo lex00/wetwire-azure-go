@@ -1,5 +1,3 @@
-// Package main implements the MCP server for wetwire-azure.
-// This allows Claude Code to interact with wetwire-azure through tool calls.
 package main
 
 import (
@@ -21,11 +19,12 @@ const (
 	serverVersion = "1.0.0"
 )
 
-func main() {
+// runMCP starts the MCP server
+func runMCP(args []string) int {
 	// Check for --install flag to show configuration
-	if len(os.Args) > 1 && os.Args[1] == "--install" {
-		fmt.Println(mcp.GetInstallInstructions(serverName, "wetwire-azure-mcp"))
-		return
+	if len(args) > 0 && args[0] == "--install" {
+		fmt.Println(mcp.GetInstallInstructions(serverName, "wetwire-azure"))
+		return ExitSuccess
 	}
 
 	// Create MCP server
@@ -42,8 +41,10 @@ func main() {
 	// Start the server
 	if err := server.Start(context.Background()); err != nil {
 		fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
-		os.Exit(1)
+		return ExitBuildError
 	}
+
+	return ExitSuccess
 }
 
 // registerBuildTool registers the build tool with the MCP server.
