@@ -106,6 +106,7 @@ import "github.com/lex00/wetwire-azure-go/resources/storage"
 var MyStorage = storage.StorageAccount{
 	Name:     "mystorage",
 	Location: "eastus",
+	Tags:     map[string]string{"env": "prod"},
 }
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(code), 0644)
@@ -134,6 +135,7 @@ import "github.com/lex00/wetwire-azure-go/resources/storage"
 var MyStorage = storage.StorageAccount{
 	Name:     "mystorage",
 	Location: "eastus",
+	Tags:     map[string]string{"env": "prod"},
 }
 `
 	err := os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(code), 0644)
@@ -183,6 +185,7 @@ import "github.com/lex00/wetwire-azure-go/resources/storage"
 var MyStorage = storage.StorageAccount{
 	Name:     "mystorage",
 	Location: "eastus",
+	Tags:     map[string]string{"env": "prod"},
 }
 `
 	testFile := filepath.Join(tmpDir, "main.go")
@@ -279,6 +282,7 @@ import "github.com/lex00/wetwire-azure-go/resources/storage"
 var MyStorage = storage.StorageAccount{
 	Name:     "mystorage",
 	Location: "eastus",
+	Tags:     map[string]string{"env": "prod"},
 }
 `
 	err = os.WriteFile(filepath.Join(subDir, "storage.go"), []byte(code), 0644)

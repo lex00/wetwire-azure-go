@@ -37,6 +37,10 @@ All rules use the **WAZ** prefix (Wetwire AZure) followed by a 3-digit number:
 | WAZ006 | Detect secrets and credentials | error | No |
 | WAZ007 | Detect sensitive file paths | warning | No |
 | WAZ008 | Detect insecure defaults | warning | No |
+| WAZ301 | Require HTTPS-only for storage | warning | No |
+| WAZ302 | Detect permissive NSG rules | warning | No |
+| WAZ303 | Require tags on resources | warning | No |
+| WAZ304 | Warn on deprecated API versions | warning | No |
 
 ## Planned Rules
 
@@ -66,13 +70,17 @@ The following rules are planned but not yet implemented:
 
 ### Security (WAZ300-399)
 
+**Implemented:**
+- **WAZ301**: Require HTTPS-only for storage accounts
+- **WAZ302**: Detect overly permissive NSG rules (0.0.0.0/0 or *)
+- **WAZ303**: Require tags on Azure resources for organization
+- **WAZ304**: Warn on deprecated API versions (pre-2021)
+
+**Planned:**
 - **WAZ300**: Detect hardcoded secrets and credentials
-- **WAZ301**: Detect hardcoded storage account keys
-- **WAZ302**: Require secureString for password parameters
-- **WAZ303**: Warn on public IP addresses without NSG
-- **WAZ304**: Detect overly permissive NSG rules (0.0.0.0/0)
 - **WAZ305**: Require encryption for storage accounts
 - **WAZ306**: Require encryption for managed disks
+- **WAZ307**: Require secureString for password parameters
 
 ### Azure-Specific (WAZ400-499)
 
