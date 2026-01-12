@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/lex00/wetwire-azure-go/resources/storage"
 	"github.com/lex00/wetwire-azure-go/internal/serialize"
+	"github.com/lex00/wetwire-azure-go/resources/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -390,4 +391,142 @@ func boolPtr(b bool) *bool {
 
 func stringPtr(s string) *string {
 	return &s
+}
+
+// TestRoundTrip_QuickstartTemplates runs round-trip tests for all quickstart templates
+// This test discovers templates in testdata/quickstarts/ and runs round-trip tests for each.
+func TestRoundTrip_QuickstartTemplates(t *testing.T) {
+	// Find all JSON files in quickstarts directory
+	quickstartsDir := filepath.Join("..", "..", "testdata", "quickstarts")
+	entries, err := os.ReadDir(quickstartsDir)
+	require.NoError(t, err, "Failed to read quickstarts directory")
+
+	var templateFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".json") {
+			templateFiles = append(templateFiles, entry.Name())
+		}
+	}
+
+	require.NotEmpty(t, templateFiles, "Expected at least one quickstart template")
+
+	for _, filename := range templateFiles {
+		t.Run(filename, func(t *testing.T) {
+			fixturePath := filepath.Join(quickstartsDir, filename)
+			data, err := os.ReadFile(fixturePath)
+			require.NoError(t, err, "Failed to read template file")
+
+			// Parse the ARM template
+			template, err := ParseARMTemplate(data)
+			require.NoError(t, err, "Failed to parse ARM template")
+
+			// Verify basic template structure
+			assert.NotEmpty(t, template.Schema, "Template should have a schema")
+			assert.NotEmpty(t, template.ContentVersion, "Template should have a content version")
+
+			// Test each resource in the template
+			for i, res := range template.Resources {
+				t.Run(res.Type, func(t *testing.T) {
+					// Verify the resource has required fields
+					assert.NotEmpty(t, res.Type, "Resource %d should have a type", i)
+					assert.NotEmpty(t, res.APIVersion, "Resource %d should have an API version", i)
+
+					// For storage accounts, test full round-trip
+					if res.Type == "Microsoft.Storage/storageAccounts" {
+						storageAccount := convertARMResourceToStorageAccount(t, res)
+						serialized := serialize.ToARMResource(storageAccount)
+
+						// Verify essential fields are preserved
+						assert.Equal(t, res.Type, serialized["type"])
+						assert.Equal(t, res.APIVersion, serialized["apiVersion"])
+						if res.Location != "" {
+							assert.Equal(t, res.Location, serialized["location"])
+						}
+						if res.Kind != "" {
+							assert.Equal(t, res.Kind, serialized["kind"])
+						}
+					}
+
+					// For all resources, verify the resource can be parsed and re-serialized
+					resourceJSON, err := json.Marshal(res)
+					require.NoError(t, err, "Failed to marshal resource")
+
+					var resourceMap map[string]interface{}
+					err = json.Unmarshal(resourceJSON, &resourceMap)
+					require.NoError(t, err, "Failed to unmarshal resource")
+
+					// Verify the type is parseable
+					pkgName, typeName := ResourceTypeToPackage(res.Type)
+					t.Logf("Resource type %s maps to package %s, type %s", res.Type, pkgName, typeName)
+				})
+			}
+		})
+	}
+}
+
+// TestRoundTrip_AzureQuickstartTemplates tests round-trip with templates fetched from Azure Quickstart repo
+// This test runs on templates in testdata/azure-quickstarts/ (populated by fetch script)
+func TestRoundTrip_AzureQuickstartTemplates(t *testing.T) {
+	azureQuickstartsDir := filepath.Join("..", "..", "testdata", "azure-quickstarts")
+
+	// Skip if directory doesn't exist (templates not yet fetched)
+	if _, err := os.Stat(azureQuickstartsDir); os.IsNotExist(err) {
+		t.Skip("Azure quickstart templates not fetched. Run: go run scripts/fetch_quickstart_templates.go")
+	}
+
+	entries, err := os.ReadDir(azureQuickstartsDir)
+	require.NoError(t, err, "Failed to read azure-quickstarts directory")
+
+	var templateFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".json") {
+			templateFiles = append(templateFiles, entry.Name())
+		}
+	}
+
+	if len(templateFiles) == 0 {
+		t.Skip("No azure quickstart templates found. Run: go run scripts/fetch_quickstart_templates.go")
+	}
+
+	t.Logf("Testing %d Azure quickstart templates", len(templateFiles))
+
+	for _, filename := range templateFiles {
+		t.Run(filename, func(t *testing.T) {
+			fixturePath := filepath.Join(azureQuickstartsDir, filename)
+			data, err := os.ReadFile(fixturePath)
+			require.NoError(t, err, "Failed to read template file")
+
+			// Parse the ARM template
+			template, err := ParseARMTemplate(data)
+			require.NoError(t, err, "Failed to parse ARM template: %s", filename)
+
+			// Verify basic template structure
+			assert.NotEmpty(t, template.Schema, "Template should have a schema")
+			assert.NotEmpty(t, template.ContentVersion, "Template should have a content version")
+			assert.NotEmpty(t, template.Resources, "Template should have at least one resource")
+
+			// Track supported vs unsupported resource types
+			var supportedCount, unsupportedCount int
+
+			for _, res := range template.Resources {
+				pkgName, _ := ResourceTypeToPackage(res.Type)
+				if pkgName == "" {
+					unsupportedCount++
+					t.Logf("Unsupported resource type: %s", res.Type)
+				} else {
+					supportedCount++
+
+					// For supported types, attempt full round-trip
+					if res.Type == "Microsoft.Storage/storageAccounts" {
+						storageAccount := convertARMResourceToStorageAccount(t, res)
+						serialized := serialize.ToARMResource(storageAccount)
+						assert.Equal(t, res.Type, serialized["type"])
+					}
+				}
+			}
+
+			t.Logf("Template %s: %d supported, %d unsupported resource types",
+				filename, supportedCount, unsupportedCount)
+		})
+	}
 }

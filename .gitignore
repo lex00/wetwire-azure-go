@@ -42,3 +42,6 @@ Thumbs.db
 # Generated ARM templates
 *.arm.json
 *.bicep.json
+
+# Fetched Azure Quickstart templates (run: go run scripts/fetch_quickstart_templates.go)
+testdata/azure-quickstarts/
