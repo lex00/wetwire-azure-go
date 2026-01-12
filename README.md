@@ -48,7 +48,23 @@ func main() {
 - `wetwire-azure build` - Generate ARM/Bicep templates from Go code
 - `wetwire-azure lint` - Lint Azure resource definitions
 - `wetwire-azure validate` - Validate against Azure schemas
+- `wetwire-azure design` - AI-assisted infrastructure design
 - `wetwire-azure test` - Run synthesis tests with AI personas
+- `wetwire-azure mcp` - Start MCP server for Kiro CLI integration
+
+## AI-Assisted Design
+
+wetwire-azure integrates with Kiro CLI for interactive infrastructure design:
+
+```bash
+# Install Kiro CLI
+curl -fsSL https://cli.kiro.dev/install | bash
+
+# Start AI-assisted design session
+wetwire-azure design --provider kiro "Create a storage account with geo-redundant storage"
+```
+
+See [docs/AZURE-KIRO-CLI.md](docs/AZURE-KIRO-CLI.md) for detailed setup instructions.
 
 ## License
 

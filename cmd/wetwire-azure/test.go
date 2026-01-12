@@ -153,8 +153,9 @@ func runTestKiro(prompt, outputDir, personaName, scenario string, stream bool) e
 		cancel()
 	}()
 
-	// Validate persona name using core personas
-	if _, err := personas.Get(personaName); err != nil {
+	// Get persona object
+	persona, err := personas.Get(personaName)
+	if err != nil {
 		return fmt.Errorf("invalid persona: %w", err)
 	}
 
@@ -177,7 +178,7 @@ func runTestKiro(prompt, outputDir, personaName, scenario string, stream bool) e
 	fmt.Printf("Prompt: %s\n\n", prompt)
 
 	// Run the test with persona
-	result, err := runner.RunWithPersona(ctx, prompt, personaName)
+	result, err := runner.RunWithPersona(ctx, prompt, persona)
 	if err != nil {
 		return fmt.Errorf("test failed: %w", err)
 	}

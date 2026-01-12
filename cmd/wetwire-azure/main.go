@@ -63,6 +63,8 @@ func run(args []string) int {
 		return runDesignWrapper(args[1:])
 	case "test":
 		return runTestWrapper(args[1:])
+	case "mcp":
+		return runMCP(args[1:])
 	case "help", "-h", "--help":
 		printUsage()
 		return ExitSuccess
@@ -88,6 +90,7 @@ func printUsage() {
 	fmt.Println("  wetwire-azure watch [package-path] [flags]  Watch source files and auto-rebuild")
 	fmt.Println("  wetwire-azure design [flags]                AI-assisted infrastructure generation")
 	fmt.Println("  wetwire-azure test [flags]                  Run persona-based testing")
+	fmt.Println("  wetwire-azure mcp [--install]               Start MCP server for Claude integration")
 	fmt.Println("  wetwire-azure help                          Show this help message")
 	fmt.Println()
 	fmt.Println("Options for build:")

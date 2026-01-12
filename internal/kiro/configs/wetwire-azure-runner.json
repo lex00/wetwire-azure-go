@@ -5,8 +5,8 @@
   "model": "claude-sonnet-4",
   "mcpServers": {
     "wetwire": {
-      "command": "wetwire-azure-mcp",
-      "args": []
+      "command": "wetwire-azure",
+      "args": ["mcp"]
     }
   },
   "tools": [
