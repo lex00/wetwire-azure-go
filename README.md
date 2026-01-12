@@ -23,21 +23,23 @@ go install github.com/lex00/wetwire-azure-go/cmd/wetwire-azure@latest
 package main
 
 import (
-    "github.com/lex00/wetwire-azure-go/resources/compute"
-    "github.com/lex00/wetwire-azure-go/resources/network"
+    "github.com/lex00/wetwire-azure-go/resources/storage"
 )
 
+// MyStorageAccount defines a basic Azure storage account.
+// Resources are declared as package-level variables for AST discovery.
+var MyStorageAccount = storage.StorageAccount{
+    Name:     "mystorageaccount",
+    Location: "eastus",
+    SKU: storage.SKU{
+        Name: "Standard_LRS",
+    },
+    Kind: "StorageV2",
+}
+
 func main() {
-    vm := compute.VirtualMachine{
-        Name:     "my-vm",
-        Location: "eastus",
-        Properties: compute.VirtualMachineProperties{
-            HardwareProfile: compute.HardwareProfile{
-                VMSize: "Standard_DS1_v2",
-            },
-            // ...
-        },
-    }
+    // wetwire-azure build discovers resources via AST parsing
+    // No runtime execution is needed
 }
 ```
 
