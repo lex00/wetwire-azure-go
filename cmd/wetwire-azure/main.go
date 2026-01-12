@@ -18,6 +18,8 @@ import (
 	"github.com/lex00/wetwire-core-go/agent/orchestrator"
 	"github.com/lex00/wetwire-core-go/agent/personas"
 	"github.com/lex00/wetwire-core-go/agent/results"
+	"github.com/lex00/wetwire-core-go/providers"
+	"github.com/lex00/wetwire-core-go/providers/anthropic"
 )
 
 // Exit codes
@@ -1353,14 +1355,22 @@ func runTest(args []string) int {
 	var allPersonas bool
 	var scenario string
 	var outputDir string
+	var providerName string
 
 	fs.StringVar(&personaName, "persona", "intermediate", "Persona to use (beginner, intermediate, expert, terse, verbose)")
 	fs.BoolVar(&allPersonas, "all-personas", false, "Run all personas")
 	fs.StringVar(&scenario, "scenario", "default", "Scenario name")
 	fs.StringVar(&outputDir, "output-dir", ".", "Output directory for results")
+	fs.StringVar(&providerName, "provider", "anthropic", "AI provider to use (anthropic, mock)")
 
 	fs.SetOutput(os.Stderr)
 	if err := fs.Parse(args); err != nil {
+		return ExitInvalidArgument
+	}
+
+	// Validate provider
+	if err := validateProvider(providerName); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return ExitInvalidArgument
 	}
 
@@ -1391,6 +1401,19 @@ func runTest(args []string) int {
 		return ExitBuildError
 	}
 
+	// Try to create provider (returns nil if no API key)
+	provider, err := createProvider(providerName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating provider: %v\n", err)
+		return ExitBuildError
+	}
+
+	if provider != nil {
+		fmt.Printf("Using provider: %s\n", provider.Name())
+	} else {
+		fmt.Printf("Using mock responses (set ANTHROPIC_API_KEY for AI-powered testing)\n")
+	}
+
 	// Run test for each persona
 	for _, persona := range personasToRun {
 		fmt.Printf("Running test with persona: %s\n", persona.Name)
@@ -1405,11 +1428,34 @@ func runTest(args []string) int {
 		// Create a mock runner for now (real implementation would use AI provider)
 		runner := &mockRunner{outputDir: outputDir}
 
-		// Create AI developer with persona
-		developer := orchestrator.NewAIDeveloper(persona, func(ctx context.Context, systemPrompt, message string) (string, error) {
-			// Mock response based on persona
-			return fmt.Sprintf("[%s response to: %s]", persona.Name, message), nil
-		})
+		// Create AI developer with persona - use provider if available
+		var developer orchestrator.Developer
+		if provider != nil {
+			developer = orchestrator.NewAIDeveloper(persona, func(ctx context.Context, systemPrompt, message string) (string, error) {
+				req := providers.MessageRequest{
+					Messages:  []providers.Message{providers.NewUserMessage(message)},
+					System:    systemPrompt,
+					MaxTokens: 4096,
+				}
+				resp, err := provider.CreateMessage(ctx, req)
+				if err != nil {
+					return "", err
+				}
+				// Extract text from response content blocks
+				var result strings.Builder
+				for _, block := range resp.Content {
+					if block.Type == "text" {
+						result.WriteString(block.Text)
+					}
+				}
+				return result.String(), nil
+			})
+		} else {
+			developer = orchestrator.NewAIDeveloper(persona, func(ctx context.Context, systemPrompt, message string) (string, error) {
+				// Mock response based on persona
+				return fmt.Sprintf("[%s response to: %s]", persona.Name, message), nil
+			})
+		}
 
 		// Create orchestrator
 		orch := orchestrator.New(config, developer, runner)
@@ -1489,16 +1535,56 @@ func writeSessionResults(filename string, session *results.Session) error {
 	return os.WriteFile(filename, data, 0644)
 }
 
+// supportedProviders lists the valid provider names
+var supportedProviders = []string{"anthropic", "mock"}
+
+// validateProvider checks if the provider name is valid
+func validateProvider(name string) error {
+	for _, p := range supportedProviders {
+		if p == name {
+			return nil
+		}
+	}
+	return fmt.Errorf("unknown provider: %s (supported: %s)", name, strings.Join(supportedProviders, ", "))
+}
+
+// createProvider creates a provider based on the name and environment configuration
+// Returns nil if API key is not available (caller should use mock behavior)
+func createProvider(name string) (providers.Provider, error) {
+	switch name {
+	case "anthropic":
+		apiKey := os.Getenv("ANTHROPIC_API_KEY")
+		if apiKey == "" {
+			return nil, nil // No API key, use mock
+		}
+		return anthropic.New(anthropic.Config{
+			APIKey: apiKey,
+		})
+	case "mock":
+		return nil, nil // Mock mode explicitly requested
+	default:
+		return nil, fmt.Errorf("unknown provider: %s", name)
+	}
+}
+
 // runDesign executes the design command for AI-assisted infrastructure generation
 func runDesign(args []string) int {
 	fs := flag.NewFlagSet("design", flag.ContinueOnError)
 
 	var outputDir string
+	var providerName string
 
 	fs.StringVar(&outputDir, "output-dir", ".", "Output directory for generated code")
+	fs.StringVar(&providerName, "provider", "anthropic", "AI provider to use (anthropic, mock)")
 
 	fs.SetOutput(os.Stderr)
 	if err := fs.Parse(args); err != nil {
+		return ExitInvalidArgument
+	}
+
+	// Validate provider
+	if err := validateProvider(providerName); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return ExitInvalidArgument
 	}
 
@@ -1514,6 +1600,19 @@ func runDesign(args []string) int {
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
 		return ExitBuildError
+	}
+
+	// Try to create provider (returns nil if no API key)
+	provider, err := createProvider(providerName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating provider: %v\n", err)
+		return ExitBuildError
+	}
+
+	if provider != nil {
+		fmt.Printf("Using provider: %s\n", provider.Name())
+	} else {
+		fmt.Printf("Using mock generation (set ANTHROPIC_API_KEY for AI-powered design)\n")
 	}
 
 	fmt.Printf("Generating infrastructure for: %s\n", prompt)
