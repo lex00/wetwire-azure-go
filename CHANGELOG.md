@@ -49,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `scripts/fetch_quickstart_templates.go` - Template fetcher script
   - Parameterized round-trip tests for discovered templates
   - 10 curated templates covering storage, network, compute, web, and database resources
+- Comprehensive example projects:
+  - `examples/enterprise-app/` - Multi-tier application with VNet, NSG, VMs, Storage
+  - `examples/parameters-and-outputs/` - ARM intrinsics and parameter patterns
+  - `examples/security-best-practices/` - Security patterns with NSG, encryption, access controls
 
 ### Changed
 - Moved QUICK_START.md to docs/ per spec requirements
