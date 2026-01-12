@@ -45,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - docs/VERSIONING.md - Version compatibility information
   - docs/CODEGEN.md - Code generation pipeline documentation
   - examples/README.md - Examples directory overview
+- Azure Quickstart Templates integration for round-trip testing:
+  - `scripts/fetch_quickstart_templates.go` - Template fetcher script
+  - Parameterized round-trip tests for discovered templates
+  - 10 curated templates covering storage, network, compute, web, and database resources
 
 ### Changed
 - Moved QUICK_START.md to docs/ per spec requirements
