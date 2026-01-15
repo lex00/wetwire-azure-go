@@ -7,57 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- CHANGELOG.md for tracking version history
-- Unit tests for intrinsics package (100% coverage)
-- `design` CLI command for AI-assisted infrastructure generation
-- Provider abstraction layer for AI backends:
-  - `--provider` flag for `design` and `test` commands
-  - Anthropic provider integration via `wetwire-core-go/providers`
-  - Automatic fallback to mock mode when no API key is set
-  - Environment variable support (`ANTHROPIC_API_KEY`)
-- Network resource types (`resources/network` package):
-  - `network.VirtualNetwork` - Azure Virtual Network with address space and subnets
-  - `network.Subnet` - Azure Subnet with NSG and service endpoint support
-  - `network.NetworkInterface` - Azure Network Interface with IP configurations
-  - `network.PublicIPAddress` - Azure Public IP Address with SKU and DNS settings
-  - `network.NetworkSecurityGroup` - Azure NSG with security rules
-- Unit tests for resource packages:
-  - `resources/storage` - 100% coverage for StorageAccount and related types
-  - `resources/compute` - 100% coverage for VirtualMachine and related types
-- `test` CLI command for persona-based testing with scoring
-- Security lint rules:
-  - WAZ006: Detect secrets and credentials (AWS keys, GitHub tokens, passwords)
-  - WAZ007: Detect sensitive file paths (.env, .pem, .key)
-  - WAZ008: Detect insecure defaults (HTTP, public access)
-  - WAZ301: Require HTTPS-only for storage accounts
-  - WAZ302: Detect overly permissive NSG rules (0.0.0.0/0 or *)
-  - WAZ303: Require tags on Azure resources
-  - WAZ304: Warn on deprecated API versions (pre-2021)
-- Lint auto-fix support via `--fix` flag:
-  - WAZ001: Auto-fix location format (normalize to lowercase, remove spaces)
-  - FixableRule interface for implementing auto-fix in custom rules
-- README badges (CI, Go Reference, Go Report Card, License)
-- Documentation per wetwire spec:
-  - docs/IMPORT_WORKFLOW.md - ARM template import guide
-  - docs/ADOPTION.md - Migration guide from Terraform/CDK/Pulumi
-  - docs/DEVELOPERS.md - Contributor guidelines
-  - docs/VERSIONING.md - Version compatibility information
-  - docs/CODEGEN.md - Code generation pipeline documentation
-  - examples/README.md - Examples directory overview
-- Azure Quickstart Templates integration for round-trip testing:
-  - `scripts/fetch_quickstart_templates.go` - Template fetcher script
-  - Parameterized round-trip tests for discovered templates
-  - 10 curated templates covering storage, network, compute, web, and database resources
-- Comprehensive example projects:
-  - `examples/enterprise-app/` - Multi-tier application with VNet, NSG, VMs, Storage
-  - `examples/parameters-and-outputs/` - ARM intrinsics and parameter patterns
-  - `examples/security-best-practices/` - Security patterns with NSG, encryption, access controls
-
 ### Changed
-- Moved QUICK_START.md to docs/ per spec requirements
-
-## [1.0.0] - 2026-01-11
+- Updated `wetwire-core-go` to v1.5.4 for Kiro provider cwd fix
 
 ### Added
 
