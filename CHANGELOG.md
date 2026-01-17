@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Removed `init()` function in `internal/kiro/config.go`, using constant for `AgentPrompt` instead
 - Renamed `internal/linter` to `internal/lint` for consistency with wetwire-core-go naming conventions
 - Migrated discover package to use `wetwire-core-go/ast` utilities (ExtractTypeName, IsBuiltinIdent)
 - Migrated linter Severity type to use `wetwire-core-go/lint` type alias
