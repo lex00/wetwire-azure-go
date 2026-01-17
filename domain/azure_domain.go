@@ -163,13 +163,46 @@ func (l *azureLinter) Lint(ctx *Context, path string, opts LintOpts) (*Result, e
 type azureInitializer struct{}
 
 func (i *azureInitializer) Init(ctx *Context, path string, opts InitOpts) (*Result, error) {
+	// Use opts.Path if provided, otherwise fall back to path argument
+	targetPath := opts.Path
+	if targetPath == "" || targetPath == "." {
+		targetPath = path
+	}
+
+	// Handle scenario initialization
+	if opts.Scenario {
+		name := opts.Name
+		if name == "" {
+			name = filepath.Base(targetPath)
+		}
+
+		description := opts.Description
+		if description == "" {
+			description = "Azure ARM template scenario"
+		}
+
+		// Use core's scenario scaffolding
+		scenario := coredomain.ScaffoldScenario(name, description, "azure")
+		created, err := coredomain.WriteScenario(targetPath, scenario)
+		if err != nil {
+			return NewErrorResult(err.Error(), Error{
+				Path:    targetPath,
+				Message: err.Error(),
+			}), nil
+		}
+
+		return NewResultWithData(fmt.Sprintf("Created scenario in %s", targetPath), map[string]interface{}{
+			"created": created,
+		}), nil
+	}
+
 	// Create directory
-	if err := os.MkdirAll(path, 0755); err != nil {
+	if err := os.MkdirAll(targetPath, 0755); err != nil {
 		return nil, fmt.Errorf("create directory: %w", err)
 	}
 
 	// Check if go.mod already exists
-	goModPath := filepath.Join(path, "go.mod")
+	goModPath := filepath.Join(targetPath, "go.mod")
 	if _, err := os.Stat(goModPath); err == nil {
 		return NewErrorResult("go.mod already exists", Error{
 			Path:    goModPath,
@@ -212,7 +245,7 @@ var MyStorage = storage.StorageAccount{
 	},
 }
 `
-	mainGoPath := filepath.Join(path, "main.go")
+	mainGoPath := filepath.Join(targetPath, "main.go")
 	if err := os.WriteFile(mainGoPath, []byte(mainGoContent), 0644); err != nil {
 		return nil, fmt.Errorf("write main.go: %w", err)
 	}
@@ -238,12 +271,12 @@ var MyStorage = storage.StorageAccount{
 *.swo
 *~
 `
-	gitignorePath := filepath.Join(path, ".gitignore")
+	gitignorePath := filepath.Join(targetPath, ".gitignore")
 	if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644); err != nil {
 		return nil, fmt.Errorf("write .gitignore: %w", err)
 	}
 
-	return NewResult(fmt.Sprintf("Initialized wetwire-azure project in %s", path)), nil
+	return NewResult(fmt.Sprintf("Initialized wetwire-azure project in %s", targetPath)), nil
 }
 
 // azureValidator implements domain.Validator
