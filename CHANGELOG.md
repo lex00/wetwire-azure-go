@@ -8,7 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Updated `wetwire-core-go` to v1.5.4 for Kiro provider cwd fix
+- Migrated MCP server to use `domain.BuildMCPServer()` for automatic tool generation
+- Updated `wetwire-core-go` to v1.13.0 for automated MCP server generation
+- Replaced manual MCP tool registration with auto-generated implementation
 
 ### Added
 
@@ -24,9 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `watch` - Auto-rebuild on source file changes with debouncing
 
 #### MCP Server
-- `wetwire-azure-mcp` binary for Claude Code integration
-- MCP tools: build, lint, import
-- `--install` flag for Claude Code configuration instructions
+- `wetwire-azure mcp` command for Model Context Protocol integration
+- Auto-generated MCP tools via `domain.BuildMCPServer()`:
+  - `wetwire_init` - Initialize new projects
+  - `wetwire_build` - Generate ARM templates
+  - `wetwire_lint` - Check code quality
+  - `wetwire_validate` - Validate templates
+  - `wetwire_list` - List discovered resources
+  - `wetwire_graph` - Visualize dependencies
 
 #### Core Infrastructure
 - AST-based resource discovery from Go source files
@@ -82,7 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Dependencies
 - Go 1.23+
 - github.com/stretchr/testify v1.11.1
-- github.com/lex00/wetwire-core-go v1.3.0
+- github.com/lex00/wetwire-core-go v1.13.0
 
 [Unreleased]: https://github.com/lex00/wetwire-azure-go/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/lex00/wetwire-azure-go/releases/tag/v1.0.0
