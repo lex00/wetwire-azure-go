@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	coreast "github.com/lex00/wetwire-core-go/ast"
 )
 
 // DiscoveredResource represents a discovered Azure resource with metadata
@@ -179,30 +181,22 @@ func inferAzureResourceType(valueExpr ast.Expr, imports map[string]string) strin
 // getAzureResourceType checks if the type expression represents an Azure resource
 // and returns the Azure resource type string
 func getAzureResourceType(typeExpr ast.Expr, imports map[string]string) string {
-	switch t := typeExpr.(type) {
-	case *ast.SelectorExpr:
-		// Type like storage.StorageAccount
-		if ident, ok := t.X.(*ast.Ident); ok {
-			pkgAlias := ident.Name
-			typeName := t.Sel.Name
-			key := fmt.Sprintf("%s.%s", pkgAlias, typeName)
+	// Use core AST utilities to extract type name and package
+	typeName, pkgAlias := coreast.ExtractTypeName(typeExpr)
+	if typeName == "" || pkgAlias == "" {
+		return ""
+	}
 
-			// Check if this is a known Azure resource type
-			if azureType, ok := azureResourceMap[key]; ok {
-				// Verify it's from the wetwire-azure-go package
-				if importPath, exists := imports[pkgAlias]; exists {
-					if strings.Contains(importPath, "wetwire-azure-go/resources") {
-						return azureType
-					}
-				}
+	key := fmt.Sprintf("%s.%s", pkgAlias, typeName)
+
+	// Check if this is a known Azure resource type
+	if azureType, ok := azureResourceMap[key]; ok {
+		// Verify it's from the wetwire-azure-go package
+		if importPath, exists := imports[pkgAlias]; exists {
+			if strings.Contains(importPath, "wetwire-azure-go/resources") {
+				return azureType
 			}
 		}
-
-	case *ast.Ident:
-		// Direct type reference (less common, but possible)
-		// This would require the type to be defined in the same package
-		// For now, we don't handle this case as it's not the typical pattern
-		return ""
 	}
 
 	return ""
@@ -230,7 +224,7 @@ func extractDependenciesRecursive(expr ast.Expr, deps map[string]bool) {
 	switch e := expr.(type) {
 	case *ast.Ident:
 		// Direct variable reference
-		if e.Name != "_" && !isBuiltinType(e.Name) {
+		if e.Name != "_" && !isBuiltinIdent(e.Name) {
 			deps[e.Name] = true
 		}
 
@@ -296,15 +290,8 @@ func extractDependenciesRecursive(expr ast.Expr, deps map[string]bool) {
 	}
 }
 
-// isBuiltinType checks if a name is a Go builtin type
-func isBuiltinType(name string) bool {
-	builtins := map[string]bool{
-		"bool": true, "byte": true, "complex64": true, "complex128": true,
-		"error": true, "float32": true, "float64": true, "int": true,
-		"int8": true, "int16": true, "int32": true, "int64": true,
-		"rune": true, "string": true, "uint": true, "uint8": true,
-		"uint16": true, "uint32": true, "uint64": true, "uintptr": true,
-		"true": true, "false": true, "nil": true,
-	}
-	return builtins[name]
+// isBuiltinIdent checks if a name is a Go builtin identifier (type, function, or constant).
+// This is a thin wrapper around coreast.IsBuiltinIdent for local use.
+func isBuiltinIdent(name string) bool {
+	return coreast.IsBuiltinIdent(name)
 }

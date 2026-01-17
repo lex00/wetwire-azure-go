@@ -591,8 +591,8 @@ var myVNet = network.VirtualNetwork{
 	require.Len(t, resources, 1) // Only VirtualNetwork should be discovered
 }
 
-// TestIsBuiltinType tests the isBuiltinType helper function
-func TestIsBuiltinType(t *testing.T) {
+// TestIsBuiltinIdent tests the isBuiltinIdent helper function
+func TestIsBuiltinIdent(t *testing.T) {
 	tests := []struct {
 		name     string
 		expected bool
@@ -620,6 +620,13 @@ func TestIsBuiltinType(t *testing.T) {
 		{"true", true},
 		{"false", true},
 		{"nil", true},
+		// Also test builtin functions (new in coreast.IsBuiltinIdent)
+		{"len", true},
+		{"cap", true},
+		{"make", true},
+		{"new", true},
+		{"append", true},
+		// Non-builtins
 		{"MyStruct", false},
 		{"storageAccount", false},
 		{"", false},
@@ -627,7 +634,7 @@ func TestIsBuiltinType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isBuiltinType(tt.name)
+			result := isBuiltinIdent(tt.name)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

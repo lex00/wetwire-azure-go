@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Migrated discover package to use `wetwire-core-go/ast` utilities (ExtractTypeName, IsBuiltinIdent)
 - Migrated linter Severity type to use `wetwire-core-go/lint` type alias
 - Updated `wetwire-core-go` to v1.16.0
 - Migrated MCP server to use `domain.BuildMCPServer()` for automatic tool generation
