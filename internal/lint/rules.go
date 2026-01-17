@@ -1,4 +1,4 @@
-package linter
+package lint
 
 // AllRules returns all registered lint rules
 func AllRules() []Rule {
