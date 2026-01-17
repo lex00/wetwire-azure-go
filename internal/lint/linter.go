@@ -1,5 +1,5 @@
-// Package linter provides lint rules for wetwire-azure-go infrastructure code
-package linter
+// Package lint provides lint rules for wetwire-azure-go infrastructure code
+package lint
 
 import (
 	"fmt"

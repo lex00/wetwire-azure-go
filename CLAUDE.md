@@ -91,7 +91,7 @@ wetwire-azure-go/
 ├── internal/
 │   ├── discover/       # AST-based resource discovery
 │   ├── template/       # ARM template builder
-│   ├── linter/         # Lint rules (WAZ001-WAZ999)
+│   ├── lint/           # Lint rules (WAZ001-WAZ999)
 │   └── importer/       # JSON/Bicep to Go conversion
 └── cmd/wetwire-azure/  # CLI application
 ```
@@ -213,7 +213,7 @@ This is a domain package implementing wetwire for Azure:
 - `intrinsics/` contains ARM template function wrappers
 - `internal/discover/` implements AST-based resource discovery
 - `internal/template/` builds ARM JSON or Bicep output
-- `internal/linter/` enforces declarative patterns (WAZ rules)
+- `internal/lint/` enforces declarative patterns (WAZ rules)
 - `cmd/wetwire-azure/` is the CLI entry point
 
 ### Key Files

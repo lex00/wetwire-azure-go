@@ -9,7 +9,7 @@ import (
 
 	coredomain "github.com/lex00/wetwire-core-go/domain"
 	"github.com/lex00/wetwire-azure-go/internal/discover"
-	"github.com/lex00/wetwire-azure-go/internal/linter"
+	"github.com/lex00/wetwire-azure-go/internal/lint"
 	"github.com/lex00/wetwire-azure-go/internal/template"
 )
 
@@ -120,9 +120,9 @@ func (l *azureLinter) Lint(ctx *Context, path string, opts LintOpts) (*Result, e
 	}
 
 	// Create linter
-	azureLint := linter.NewLinter()
+	azureLint := lint.NewLinter()
 
-	var results []linter.LintResult
+	var results []lint.LintResult
 
 	// Check file or directory
 	info, err := os.Stat(absPath)
