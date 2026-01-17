@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Migrated linter Severity type to use `wetwire-core-go/lint` type alias
+- Updated `wetwire-core-go` to v1.16.0
 - Migrated MCP server to use `domain.BuildMCPServer()` for automatic tool generation
 - Updated `wetwire-core-go` to v1.13.0 for automated MCP server generation
 - Replaced manual MCP tool registration with auto-generated implementation
