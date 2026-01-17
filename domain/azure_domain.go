@@ -11,30 +11,6 @@ import (
 	"github.com/lex00/wetwire-azure-go/internal/discover"
 	"github.com/lex00/wetwire-azure-go/internal/linter"
 	"github.com/lex00/wetwire-azure-go/internal/template"
-	"github.com/spf13/cobra"
-)
-
-// Version is set at build time
-var Version = "dev"
-
-// Re-export core types for convenience
-type (
-	Context      = coredomain.Context
-	BuildOpts    = coredomain.BuildOpts
-	LintOpts     = coredomain.LintOpts
-	InitOpts     = coredomain.InitOpts
-	ValidateOpts = coredomain.ValidateOpts
-	ListOpts     = coredomain.ListOpts
-	GraphOpts    = coredomain.GraphOpts
-	Result       = coredomain.Result
-	Error        = coredomain.Error
-)
-
-var (
-	NewResult              = coredomain.NewResult
-	NewResultWithData      = coredomain.NewResultWithData
-	NewErrorResult         = coredomain.NewErrorResult
-	NewErrorResultMultiple = coredomain.NewErrorResultMultiple
 )
 
 // AzureDomain implements the Domain interface for Azure infrastructure.
@@ -404,9 +380,4 @@ func isResource(name string, resources []discover.DiscoveredResource) bool {
 		}
 	}
 	return false
-}
-
-// CreateRootCommand creates the root command using the domain interface.
-func CreateRootCommand(d coredomain.Domain) *cobra.Command {
-	return coredomain.Run(d)
 }
