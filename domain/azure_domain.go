@@ -119,8 +119,14 @@ func (l *azureLinter) Lint(ctx *Context, path string, opts LintOpts) (*Result, e
 		return nil, fmt.Errorf("resolve path: %w", err)
 	}
 
-	// Create linter
-	azureLint := lint.NewLinter()
+	// Build lint options from LintOpts
+	lintOpts := lint.Options{
+		DisabledRules: opts.Disable,
+		Fix:           opts.Fix,
+	}
+
+	// Create linter with options
+	azureLint := lint.NewLinterWithOptions(lintOpts)
 
 	var results []lint.LintResult
 
@@ -156,6 +162,10 @@ func (l *azureLinter) Lint(ctx *Context, path string, opts LintOpts) (*Result, e
 		})
 	}
 
+	// If Fix mode is enabled, add a note about auto-fixing
+	if opts.Fix {
+		return NewErrorResultMultiple("lint issues found (auto-fix not yet implemented for these issues)", errs), nil
+	}
 	return NewErrorResultMultiple("lint issues found", errs), nil
 }
 

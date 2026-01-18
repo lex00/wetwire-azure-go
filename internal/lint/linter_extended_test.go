@@ -556,3 +556,175 @@ var Storage = storage.StorageAccount{
 	require.NoError(t, err)
 	assert.Empty(t, results) // No circular dependency
 }
+
+// TestLinterOptions_DisabledRules tests that disabled rules are skipped
+func TestLinterOptions_DisabledRules(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a file with issues that would trigger WAZ001 (invalid location format)
+	code := `package main
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorageaccount",
+	Location: "East US",
+}
+`
+	testFile := filepath.Join(tmpDir, "test.go")
+	err := os.WriteFile(testFile, []byte(code), 0644)
+	require.NoError(t, err)
+
+	// First, verify WAZ001 is triggered without disabling
+	linter := NewLinter()
+	results, err := linter.CheckFile(testFile)
+	require.NoError(t, err)
+
+	hasWAZ001 := false
+	for _, r := range results {
+		if r.Rule == "WAZ001" {
+			hasWAZ001 = true
+			break
+		}
+	}
+	assert.True(t, hasWAZ001, "WAZ001 should be triggered for 'East US' location")
+
+	// Now test with disabled rules
+	linterWithOpts := NewLinterWithOptions(Options{
+		DisabledRules: []string{"WAZ001"},
+	})
+	resultsWithDisabled, err := linterWithOpts.CheckFile(testFile)
+	require.NoError(t, err)
+
+	hasWAZ001AfterDisable := false
+	for _, r := range resultsWithDisabled {
+		if r.Rule == "WAZ001" {
+			hasWAZ001AfterDisable = true
+			break
+		}
+	}
+	assert.False(t, hasWAZ001AfterDisable, "WAZ001 should be skipped when disabled")
+}
+
+// TestLinterOptions_DisableMultipleRules tests disabling multiple rules
+func TestLinterOptions_DisableMultipleRules(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a file with issues that would trigger WAZ001 and WAZ004
+	code := `package main
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorageaccount",
+	Location: "East US",
+}
+
+var MyStorage = storage.StorageAccount{
+	Name:     "duplicatename",
+	Location: "West US",
+}
+`
+	testFile := filepath.Join(tmpDir, "test.go")
+	err := os.WriteFile(testFile, []byte(code), 0644)
+	require.NoError(t, err)
+
+	// Test with both rules disabled
+	linter := NewLinterWithOptions(Options{
+		DisabledRules: []string{"WAZ001", "WAZ004"},
+	})
+	results, err := linter.CheckFile(testFile)
+	require.NoError(t, err)
+
+	for _, r := range results {
+		if r.Rule == "WAZ001" || r.Rule == "WAZ004" {
+			t.Errorf("Rule %s should be disabled but was triggered", r.Rule)
+		}
+	}
+}
+
+// TestLinterOptions_FixOption tests that Fix option is accepted
+func TestLinterOptions_FixOption(t *testing.T) {
+	// Test that Fix option can be set without error
+	linter := NewLinterWithOptions(Options{
+		Fix: true,
+	})
+	assert.NotNil(t, linter)
+	assert.True(t, linter.options.Fix)
+}
+
+// TestLinterOptions_CombinedOptions tests combined DisabledRules and Fix options
+func TestLinterOptions_CombinedOptions(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	code := `package main
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Name:     "mystorageaccount",
+	Location: "East US",
+}
+`
+	testFile := filepath.Join(tmpDir, "test.go")
+	err := os.WriteFile(testFile, []byte(code), 0644)
+	require.NoError(t, err)
+
+	linter := NewLinterWithOptions(Options{
+		DisabledRules: []string{"WAZ001"},
+		Fix:           true,
+	})
+	results, err := linter.CheckFile(testFile)
+	require.NoError(t, err)
+
+	// WAZ001 should be disabled even when Fix is true
+	for _, r := range results {
+		assert.NotEqual(t, "WAZ001", r.Rule)
+	}
+}
+
+// TestLinterOptions_EmptyDisabledRules tests empty disabled rules list
+func TestLinterOptions_EmptyDisabledRules(t *testing.T) {
+	linter := NewLinterWithOptions(Options{
+		DisabledRules: []string{},
+	})
+	// Should have all rules registered
+	assert.Equal(t, len(AllRules()), len(linter.rules))
+}
+
+// TestLinterOptions_DisableNonExistentRule tests disabling a rule that doesn't exist
+func TestLinterOptions_DisableNonExistentRule(t *testing.T) {
+	linter := NewLinterWithOptions(Options{
+		DisabledRules: []string{"NONEXISTENT"},
+	})
+	// Should still have all rules (the non-existent one is just ignored)
+	assert.Equal(t, len(AllRules()), len(linter.rules))
+}
+
+// TestLinterCheckDirectoryWithOptions tests CheckDirectory respects options
+func TestLinterCheckDirectoryWithOptions(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	code := `package main
+
+import "github.com/lex00/wetwire-azure-go/resources/storage"
+
+var MyStorage = storage.StorageAccount{
+	Location: "East US",
+}
+`
+	testFile := filepath.Join(tmpDir, "test.go")
+	err := os.WriteFile(testFile, []byte(code), 0644)
+	require.NoError(t, err)
+
+	// Check with WAZ001 disabled
+	linter := NewLinterWithOptions(Options{
+		DisabledRules: []string{"WAZ001"},
+	})
+	results, err := linter.CheckDirectory(tmpDir)
+	require.NoError(t, err)
+
+	for _, r := range results {
+		assert.NotEqual(t, "WAZ001", r.Rule, "WAZ001 should be disabled in directory check")
+	}
+}

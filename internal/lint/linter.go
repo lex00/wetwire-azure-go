@@ -52,19 +52,43 @@ type FixableRule interface {
 	Fix(file string) (string, error)
 }
 
+// Options configures the linter.
+type Options struct {
+	// DisabledRules specifies rules to disable by ID (e.g., "WAZ001", "WAZ002").
+	DisabledRules []string
+	// Fix automatically fixes fixable issues (reserved for future use).
+	Fix bool
+}
+
 // Linter runs lint rules on Go files
 type Linter struct {
-	rules []Rule
+	rules   []Rule
+	options Options
 }
 
 // NewLinter creates a new linter with all default rules registered
 func NewLinter() *Linter {
+	return NewLinterWithOptions(Options{})
+}
+
+// NewLinterWithOptions creates a new linter with the specified options
+func NewLinterWithOptions(opts Options) *Linter {
 	l := &Linter{
-		rules: []Rule{},
+		rules:   []Rule{},
+		options: opts,
 	}
-	// Register all default rules
+
+	// Build disabled rules set
+	disabled := make(map[string]bool)
+	for _, id := range opts.DisabledRules {
+		disabled[id] = true
+	}
+
+	// Register all default rules except disabled ones
 	for _, rule := range AllRules() {
-		l.AddRule(rule)
+		if !disabled[rule.ID()] {
+			l.AddRule(rule)
+		}
 	}
 	return l
 }
