@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Enterprise application scenario in `examples/enterprise_scenario/` demonstrating multi-tier infrastructure with network, compute, and storage resources
+- Scenario configuration with beginner, intermediate, and expert persona prompts for AI-assisted generation
 - Support for `LintOpts.Fix` option in domain linter (reserved for future auto-fix implementation)
 - Support for `LintOpts.Disable` option to skip specific lint rules by ID (e.g., `["WAZ001", "WAZ002"]`)
 - `lint.Options` struct with `DisabledRules` and `Fix` fields in internal linter
