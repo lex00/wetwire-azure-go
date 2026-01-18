@@ -80,7 +80,7 @@ func parseFile(filePath string) ([]DiscoveredResource, error) {
 	}
 
 	var resources []DiscoveredResource
-	packageImports := extractImports(node)
+	packageImports := coreast.ExtractImports(node)
 
 	// Visit all declarations in the file
 	for _, decl := range node.Decls {
@@ -138,33 +138,6 @@ func parseFile(filePath string) ([]DiscoveredResource, error) {
 	return resources, nil
 }
 
-// extractImports builds a map of package alias to import path
-func extractImports(node *ast.File) map[string]string {
-	imports := make(map[string]string)
-
-	for _, imp := range node.Imports {
-		if imp.Path == nil {
-			continue
-		}
-
-		// Remove quotes from import path
-		importPath := strings.Trim(imp.Path.Value, `"`)
-
-		// Determine the package alias
-		var pkgAlias string
-		if imp.Name != nil {
-			pkgAlias = imp.Name.Name
-		} else {
-			// Use the last component of the path as the alias
-			parts := strings.Split(importPath, "/")
-			pkgAlias = parts[len(parts)-1]
-		}
-
-		imports[pkgAlias] = importPath
-	}
-
-	return imports
-}
 
 // inferAzureResourceType infers the Azure resource type from a value expression
 // (e.g., from a composite literal like storage.StorageAccount{...})
@@ -224,7 +197,7 @@ func extractDependenciesRecursive(expr ast.Expr, deps map[string]bool) {
 	switch e := expr.(type) {
 	case *ast.Ident:
 		// Direct variable reference
-		if e.Name != "_" && !isBuiltinIdent(e.Name) {
+		if e.Name != "_" && !coreast.IsBuiltinIdent(e.Name) {
 			deps[e.Name] = true
 		}
 
@@ -288,10 +261,4 @@ func extractDependenciesRecursive(expr ast.Expr, deps map[string]bool) {
 		extractDependenciesRecursive(e.Key, deps)
 		extractDependenciesRecursive(e.Value, deps)
 	}
-}
-
-// isBuiltinIdent checks if a name is a Go builtin identifier (type, function, or constant).
-// This is a thin wrapper around coreast.IsBuiltinIdent for local use.
-func isBuiltinIdent(name string) bool {
-	return coreast.IsBuiltinIdent(name)
 }
