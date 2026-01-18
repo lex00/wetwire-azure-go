@@ -1,0 +1,35 @@
+name: enterprise_scenario
+description: Generate Azure resources for a multi-tier enterprise application
+
+model: sonnet
+timeout: 120s
+
+prompts:
+  default: prompts/intermediate.md
+  variants:
+    beginner: prompts/beginner.md
+    intermediate: prompts/intermediate.md
+    expert: prompts/expert.md
+
+domains:
+  - name: azure
+    outputs:
+      - "expected/**/*.go"
+
+validation:
+  azure:
+    resources:
+      min: 5
+    network:
+      vnets:
+        min: 1
+      subnets:
+        min: 2
+      nsgs:
+        min: 1
+    compute:
+      vms_or_vmss:
+        min: 1
+    storage:
+      accounts:
+        min: 1
