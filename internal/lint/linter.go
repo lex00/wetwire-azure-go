@@ -20,22 +20,13 @@ const (
 	SeverityInfo    = corelint.SeverityInfo
 )
 
-// LintResult represents a single lint issue found in a file
-type LintResult struct {
-	// Rule is the ID of the rule that triggered (e.g., "WAZ001")
-	Rule string
-	// File is the absolute path to the file
-	File string
-	// Line is the line number where the issue was found
-	Line int
-	// Message is a human-readable description of the issue
-	Message string
-	// Severity indicates how critical the issue is
-	Severity Severity
-}
+// LintResult is an alias to the core lint Issue type.
+// It represents a single lint issue found in a file.
+type LintResult = corelint.Issue
 
-// String returns a formatted string representation of the lint result
-func (lr LintResult) String() string {
+// FormatResult returns a formatted string representation of the lint result.
+// This is a helper function since type aliases cannot have methods.
+func FormatResult(lr LintResult) string {
 	filename := filepath.Base(lr.File)
 	return fmt.Sprintf("%s:%d: [%s] %s (%s)", filename, lr.Line, lr.Severity, lr.Message, lr.Rule)
 }

@@ -23,7 +23,7 @@ func TestLintResult(t *testing.T) {
 	}
 }
 
-func TestLintResultString(t *testing.T) {
+func TestFormatResult(t *testing.T) {
 	result := LintResult{
 		Rule:     "WAZ001",
 		File:     "/path/to/test.go",
@@ -32,13 +32,13 @@ func TestLintResultString(t *testing.T) {
 		Severity: SeverityWarning,
 	}
 
-	str := result.String()
+	str := FormatResult(result)
 	if str == "" {
-		t.Error("String() should not return empty string")
+		t.Error("FormatResult() should not return empty string")
 	}
 	// Should contain file, line, rule, and message
 	if !contains(str, "test.go") || !contains(str, "10") || !contains(str, "WAZ001") {
-		t.Errorf("String() missing expected components: %s", str)
+		t.Errorf("FormatResult() missing expected components: %s", str)
 	}
 }
 
