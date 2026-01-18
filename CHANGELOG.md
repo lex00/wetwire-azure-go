@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Split `internal/lint/rules.go` (1,315 lines) into category-specific files for better maintainability:
+  - `rules_structure.go` - WAZ001-WAZ005 (476 lines)
+  - `rules_security.go` - WAZ006-WAZ008 (244 lines)
+  - `rules_wetwire.go` - WAZ020-WAZ022 (307 lines)
+  - `rules_azure.go` - WAZ301-WAZ304 (251 lines)
+  - `rules.go` - Main registry (22 lines)
 - Removed `init()` function in `internal/kiro/config.go`, using constant for `AgentPrompt` instead
 - Renamed `internal/linter` to `internal/lint` for consistency with wetwire-core-go naming conventions
 - Migrated discover package to use `wetwire-core-go/ast` utilities (ExtractTypeName, IsBuiltinIdent)
