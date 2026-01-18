@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Support for `LintOpts.Fix` option in domain linter (reserved for future auto-fix implementation)
+- Support for `LintOpts.Disable` option to skip specific lint rules by ID (e.g., `["WAZ001", "WAZ002"]`)
+- `lint.Options` struct with `DisabledRules` and `Fix` fields in internal linter
+- `lint.NewLinterWithOptions()` constructor for creating linter with custom options
+
 ### Changed
 - Split `internal/lint/rules.go` (1,315 lines) into category-specific files for better maintainability:
   - `rules_structure.go` - WAZ001-WAZ005 (476 lines)
