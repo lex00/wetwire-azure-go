@@ -54,17 +54,14 @@ func main() {
 
 ## AI-Assisted Design
 
-wetwire-azure integrates with Kiro CLI for interactive infrastructure design:
+Use the `design` command for interactive, AI-assisted infrastructure creation:
 
 ```bash
-# Install Kiro CLI
-curl -fsSL https://cli.kiro.dev/install | bash
-
-# Start AI-assisted design session
-wetwire-azure design --provider kiro "Create a storage account with geo-redundant storage"
+# No API key required - uses Claude CLI
+wetwire-azure design "Create a storage account with geo-redundant storage"
 ```
 
-See [docs/AZURE-KIRO-CLI.md](docs/AZURE-KIRO-CLI.md) for detailed setup instructions.
+Uses [Claude CLI](https://claude.ai/download) by default (no API key required). Falls back to Anthropic API if Claude CLI is not installed.
 
 ## Documentation
 

@@ -145,6 +145,17 @@ var MyStorage = storage.StorageAccount{
 }
 ```
 
+## AI-Assisted Design
+
+Let AI help create your Azure infrastructure:
+
+```bash
+# No API key required - uses Claude CLI
+wetwire-azure design "Create a storage account with geo-redundant storage and a virtual network"
+```
+
+The design command creates Go code following wetwire patterns, runs linting, and builds the final ARM template.
+
 ## Learn More
 
 - [INTERNALS.md](INTERNALS.md) - Architecture deep-dive
