@@ -112,3 +112,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [Unreleased]: https://github.com/lex00/wetwire-azure-go/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/lex00/wetwire-azure-go/releases/tag/v1.0.0
+
+## [1.7.0] - 2026-01-19
+
+### Changed
+
+- **Claude CLI as default provider for design command**
+  - No API key required - uses existing Claude authentication
+  - Falls back to Anthropic API if Claude CLI not installed
+  - Updated wetwire-core-go to v1.17.1
