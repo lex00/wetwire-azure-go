@@ -8,10 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `design` command for AI-assisted infrastructure generation
-  - Uses Claude CLI by default (no API key required)
-  - Falls back to Anthropic API if Claude CLI not installed
-  - Supports `--provider kiro` for Kiro CLI integration
 - Enterprise application scenario in `examples/enterprise_scenario/` demonstrating multi-tier infrastructure with network, compute, and storage resources
 - Scenario configuration with beginner, intermediate, and expert persona prompts for AI-assisted generation
 - Support for `LintOpts.Fix` option in domain linter (reserved for future auto-fix implementation)
@@ -114,8 +110,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - github.com/stretchr/testify v1.11.1
 - github.com/lex00/wetwire-core-go v1.13.0
 
-[Unreleased]: https://github.com/lex00/wetwire-azure-go/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/lex00/wetwire-azure-go/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/lex00/wetwire-azure-go/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/lex00/wetwire-azure-go/compare/v1.0.0...v1.7.0
 [1.0.0]: https://github.com/lex00/wetwire-azure-go/releases/tag/v1.0.0
+
+## [1.8.0] - 2026-01-19
+
+### Added
+
+- **Full implementation of design command**
+  - AI-assisted Azure infrastructure generation using RunnerAgent
+  - Streaming responses with `--stream` flag (enabled by default)
+  - Configurable lint cycles with `--max-lint-cycles`
+  - Kiro provider support with `--provider kiro`
+  - Session tracking and summary output
 
 ## [1.7.0] - 2026-01-19
 
