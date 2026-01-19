@@ -9,9 +9,7 @@ Get up and running with wetwire-azure-go in 5 minutes.
 
 ## Installation
 
-```bash
-go install github.com/lex00/wetwire-azure-go/cmd/wetwire-azure@latest
-```
+See [README.md](../README.md#installation) for installation instructions.
 
 ## Create Your First Project
 

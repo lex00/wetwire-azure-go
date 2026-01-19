@@ -66,6 +66,21 @@ wetwire-azure design --provider kiro "Create a storage account with geo-redundan
 
 See [docs/AZURE-KIRO-CLI.md](docs/AZURE-KIRO-CLI.md) for detailed setup instructions.
 
+## Documentation
+
+**Getting Started:**
+- [Quick Start](docs/QUICK_START.md) - 5-minute tutorial
+- [FAQ](docs/FAQ.md) - Common questions
+
+**Reference:**
+- [CLI Reference](docs/CLI.md) - All commands
+- [Lint Rules](docs/LINT_RULES.md) - WAZ rule reference
+
+**Advanced:**
+- [Internals](docs/INTERNALS.md) - Architecture and extension points
+- [Adoption Guide](docs/ADOPTION.md) - Team migration strategies
+- [Examples](docs/EXAMPLES.md) - Example projects
+
 ## License
 
 Apache 2.0

@@ -8,9 +8,7 @@ This FAQ covers questions specific to the Go implementation of wetwire for Azure
 
 ### How do I install wetwire-azure-go?
 
-```bash
-go install github.com/lex00/wetwire-azure-go/cmd/wetwire-azure@latest
-```
+See [README.md](../README.md#installation) for installation instructions.
 
 ### How do I create a new project?
 

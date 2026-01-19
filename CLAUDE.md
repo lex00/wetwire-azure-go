@@ -96,15 +96,9 @@ wetwire-azure-go/
 └── cmd/wetwire-azure/  # CLI application
 ```
 
-## Lint Rules (WAZ Prefix)
+## Lint Rules
 
-Key rules enforcing declarative patterns:
-
-- **WAZ001**: Use location constants for common regions
-- **WAZ002**: Extract inline property types to separate vars
-- **WAZ003**: Avoid explicit resource ID concatenation
-- **WAZ004**: Use typed structs instead of `map[string]any`
-- **WAZ005**: Detect duplicate resource names
+Uses the `WAZ` prefix (Wetwire AZure). See [docs/LINT_RULES.md](docs/LINT_RULES.md) for the complete rule reference.
 
 ## Key Principles
 
