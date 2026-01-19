@@ -50,7 +50,7 @@ func main() {
 - `wetwire-azure validate` - Validate against Azure schemas
 - `wetwire-azure design` - AI-assisted infrastructure design
 - `wetwire-azure test` - Run synthesis tests with AI personas
-- `wetwire-azure mcp` - Start MCP server for Kiro CLI integration
+- `wetwire-azure mcp` - Start MCP server for Claude Code integration
 
 ## AI-Assisted Design
 
