@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `design` command for AI-assisted infrastructure generation
+  - Uses Claude CLI by default (no API key required)
+  - Falls back to Anthropic API if Claude CLI not installed
+  - Supports `--provider kiro` for Kiro CLI integration
 - Enterprise application scenario in `examples/enterprise_scenario/` demonstrating multi-tier infrastructure with network, compute, and storage resources
 - Scenario configuration with beginner, intermediate, and expert persona prompts for AI-assisted generation
 - Support for `LintOpts.Fix` option in domain linter (reserved for future auto-fix implementation)

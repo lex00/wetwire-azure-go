@@ -17,8 +17,12 @@ func main() {
 	d := &domain.AzureDomain{}
 	cmd := domain.CreateRootCommand(d)
 
-	// Add MCP command
+	// Add custom commands
 	cmd.AddCommand(mcpCmd)
+	cmd.AddCommand(newDesignCmd())
+	cmd.AddCommand(newTestCmd())
+	cmd.AddCommand(newDiffCmd())
+	cmd.AddCommand(newWatchCmd())
 
 	if err := cmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
