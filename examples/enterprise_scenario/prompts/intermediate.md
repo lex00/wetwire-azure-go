@@ -1,27 +1,20 @@
-Create Azure infrastructure for a multi-tier enterprise application:
+Create an ARM template for a multi-tier enterprise application:
 
 **Network:**
-- Virtual network (10.0.0.0/16) with subnets for gateway, web, app, and data tiers
-- Network security groups for each tier with appropriate rules
-- Public IP for Application Gateway
+- Virtual network (10.0.0.0/16) with subnets for web and app tiers
+- Network security groups with appropriate rules
+- Public IP for load balancing
 
 **Compute:**
-- Web tier VMSS (2 instances, Standard_B2s) in web-subnet
-- App tier VMSS (3 instances, Standard_D2s_v3) in app-subnet
-- Application Gateway (Standard_v2) for internet-facing traffic
+- Web tier VMSS (2 instances) in web-subnet
+- Application Gateway for internet-facing traffic
 
 **Storage:**
-- GRS storage account for application data (geo-redundant)
-- LRS storage account for diagnostic logs
-
-**Database:**
-- Azure SQL Database (S1) with private endpoint
-- SQL Server with public network access disabled
+- Storage account for application data
 
 **Security:**
-- Key Vault for storing secrets (SQL password, connection strings)
-- Managed identities for VMSS to access Key Vault
-- Network restrictions on all resources
+- NSG rules to restrict traffic between tiers
 
 Location: East US
-Tags: environment=production, project=enterprise-app, cost-center=engineering
+
+Generate a single ARM template JSON file with all resources.
