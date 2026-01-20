@@ -245,12 +245,4 @@ Azure resource types should be generated from Azure Resource Manager schemas:
 
 ### Lint Rule Development
 
-Lint rules follow the WAZ prefix (Wetwire AZure):
-
-- WAZ001-099: Type safety and constants
-- WAZ100-199: Direct references and intrinsics
-- WAZ200-299: Code extraction and flattening
-- WAZ300-399: Security and best practices
-- WAZ400-499: Azure-specific patterns
-
-See `docs/LINT_RULES.md` for complete rule documentation.
+Lint rules follow the WAZ prefix (Wetwire AZure). See [docs/LINT_RULES.md](docs/LINT_RULES.md) for the complete rule reference with category ranges WAZ001-WAZ499.
