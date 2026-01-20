@@ -404,8 +404,8 @@ wetwire-azure test --scenario "vnet-basic" "Create VNet with NSG"
 | `beginner` | New to Azure, asks many clarifying questions |
 | `intermediate` | Familiar with Azure basics (default) |
 | `expert` | Deep Azure knowledge, asks advanced questions |
-| `terse` | Gives minimal responses |
-| `verbose` | Provides detailed context |
+
+Custom personas can be registered for domain-specific testing.
 
 ### Options
 
