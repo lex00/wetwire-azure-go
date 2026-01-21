@@ -119,6 +119,29 @@ wetwire-azure build ./infra > template.json
 wetwire-azure build ./infra --format bicep > template.bicep
 ```
 
+
+## Diff
+
+Compare ARM templates semantically:
+
+```bash
+# Compare two files
+wetwire-azure diff file1 file2
+
+# JSON output for CI/CD
+wetwire-azure diff file1 file2 -f json
+
+# Ignore array ordering differences
+wetwire-azure diff file1 file2 --ignore-order
+```
+
+The diff command performs semantic comparison by resource name, detecting:
+- Added resources
+- Removed resources
+- Modified resources (with property-level change details)
+
+Exit code is 1 if differences are found, enabling CI pipeline validation.
+
 ## K8s-Native Deployments (ASO)
 
 The `resources/k8s/` directory contains Azure Service Operator (ASO) types for deploying Azure resources via `kubectl apply`. This provides a Kubernetes-native alternative to ARM templates.
