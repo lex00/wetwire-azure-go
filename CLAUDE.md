@@ -86,7 +86,11 @@ wetwire-azure-go/
 │   ├── network/        # VNets, NICs, load balancers
 │   ├── storage/        # Storage accounts, blobs
 │   ├── keyvault/       # Key vaults, secrets
-│   └── webapp/         # App services, plans
+│   ├── webapp/         # App services, plans
+│   └── k8s/            # K8s CRD types (via ASO) for kubectl deployments
+│       ├── containerservice/ # ManagedCluster (AKS) CRDs
+│       ├── network/          # VirtualNetwork, Subnet CRDs
+│       └── managedidentity/  # UserAssignedIdentity CRDs
 ├── intrinsics/         # ARM template functions
 ├── internal/
 │   ├── discover/       # AST-based resource discovery
@@ -114,6 +118,43 @@ wetwire-azure build ./infra > template.json
 # or
 wetwire-azure build ./infra --format bicep > template.bicep
 ```
+
+## K8s-Native Deployments (ASO)
+
+The `resources/k8s/` directory contains Azure Service Operator (ASO) types for deploying Azure resources via `kubectl apply`. This provides a Kubernetes-native alternative to ARM templates.
+
+### Using ASO Types
+
+```go
+import (
+    aksv1 "github.com/lex00/wetwire-azure-go/resources/k8s/containerservice/v1"
+    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+var Cluster = aksv1.ManagedCluster{
+    TypeMeta: metav1.TypeMeta{
+        APIVersion: "containerservice.azure.com/v1",
+        Kind:       "ManagedCluster",
+    },
+    ObjectMeta: metav1.ObjectMeta{
+        Name:      "my-cluster",
+        Namespace: "aso-system",
+    },
+    Spec: aksv1.ManagedClusterSpec{
+        Location:          "eastus",
+        KubernetesVersion: "1.28",
+    },
+}
+```
+
+### When to Use ASO vs ARM
+
+| Approach | Use When |
+|----------|----------|
+| **ARM** (`resources/compute/`, etc.) | Traditional IaC, Azure-native tooling, existing ARM pipelines |
+| **ASO** (`resources/k8s/`) | GitOps workflows, Kubernetes-centric teams, unified K8s API |
+
+See `examples/aks-golden/` for ARM approach and `examples/aks-k8s/` for ASO approach.
 
 ## Azure-Specific Patterns
 
