@@ -23,6 +23,24 @@ type (
 	// GrapherDomain is an optional interface for domains that support graphing.
 	GrapherDomain = domain.GrapherDomain
 
+	// DifferDomain is an optional interface for domains that support diffing.
+	DifferDomain = domain.DifferDomain
+
+	// Differ compares two outputs and returns semantic differences.
+	Differ = domain.Differ
+
+	// DiffOpts contains options for the Diff operation.
+	DiffOpts = domain.DiffOpts
+
+	// DiffResult contains the comparison result between two files.
+	DiffResult = domain.DiffResult
+
+	// DiffEntry represents a single difference between two files.
+	DiffEntry = domain.DiffEntry
+
+	// DiffSummary contains counts of differences.
+	DiffSummary = domain.DiffSummary
+
 	// Builder builds domain resources from source code.
 	Builder = domain.Builder
 

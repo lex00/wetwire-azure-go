@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	coredomain "github.com/lex00/wetwire-core-go/domain"
+	"github.com/lex00/wetwire-azure-go/internal/differ"
 	"github.com/lex00/wetwire-azure-go/internal/discover"
 	"github.com/lex00/wetwire-azure-go/internal/lint"
 	"github.com/lex00/wetwire-azure-go/internal/template"
@@ -21,6 +22,7 @@ var (
 	_ coredomain.Domain        = (*AzureDomain)(nil)
 	_ coredomain.ListerDomain  = (*AzureDomain)(nil)
 	_ coredomain.GrapherDomain = (*AzureDomain)(nil)
+	_ coredomain.DifferDomain  = (*AzureDomain)(nil)
 )
 
 // Name returns "azure"
@@ -61,6 +63,11 @@ func (d *AzureDomain) Lister() coredomain.Lister {
 // Grapher returns the Azure grapher implementation
 func (d *AzureDomain) Grapher() coredomain.Grapher {
 	return &azureGrapher{}
+}
+
+// Differ returns the Azure differ implementation
+func (d *AzureDomain) Differ() coredomain.Differ {
+	return differ.New()
 }
 
 // azureBuilder implements domain.Builder
