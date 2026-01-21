@@ -3,7 +3,7 @@ module github.com/lex00/wetwire-azure-go
 go 1.23.0
 
 require (
-	github.com/lex00/wetwire-core-go v1.17.1
+	github.com/lex00/wetwire-core-go v1.20.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
@@ -35,5 +35,3 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
-
-replace github.com/lex00/wetwire-core-go => ../wetwire-core-go
