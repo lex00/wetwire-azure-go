@@ -45,3 +45,7 @@ Thumbs.db
 
 # Fetched Azure Quickstart templates (run: go run scripts/fetch_quickstart_templates.go)
 testdata/azure-quickstarts/
+
+# SVG recordings (allow mascot)
+*.svg
+!docs/wetwire.svg
