@@ -1,4 +1,7 @@
-# Troubleshooting Guide
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/wetwire-dark.svg">
+  <img src="docs/wetwire-light.svg" width="100" height="67">
+</picture>
 
 Common issues and their solutions when using wetwire-azure-go.
 

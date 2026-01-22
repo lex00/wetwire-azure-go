@@ -1,4 +1,7 @@
-# Architecture Internals
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/wetwire-dark.svg">
+  <img src="docs/wetwire-light.svg" width="100" height="67">
+</picture>
 
 This document explains how wetwire-azure-go transforms Go code into ARM templates.
 

@@ -1,4 +1,7 @@
-# Adoption Guide
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./wetwire-dark.svg">
+  <img src="./wetwire-light.svg" width="100" height="67">
+</picture>
 
 This guide helps you migrate from other infrastructure-as-code tools to wetwire-azure-go.
 

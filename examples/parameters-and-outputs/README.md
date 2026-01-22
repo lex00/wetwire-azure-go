@@ -1,4 +1,7 @@
-# Parameters and Outputs Example
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../docs/wetwire-dark.svg">
+  <img src="../../docs/wetwire-light.svg" width="100" height="67">
+</picture>
 
 This example demonstrates how to use ARM template intrinsic functions in wetwire-azure-go resource definitions.
 

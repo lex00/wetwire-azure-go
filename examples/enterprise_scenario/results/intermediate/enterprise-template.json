@@ -1,0 +1,530 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "type": "string",
+      "defaultValue": "azureuser",
+      "metadata": {
+        "description": "Admin username for virtual machines"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Admin password for virtual machines"
+      }
+    },
+    "vmSku": {
+      "type": "string",
+      "defaultValue": "Standard_D2s_v3",
+      "metadata": {
+        "description": "VM size for scale set instances"
+      }
+    },
+    "instanceCount": {
+      "type": "int",
+      "defaultValue": 2,
+      "minValue": 2,
+      "maxValue": 10,
+      "metadata": {
+        "description": "Number of VM instances in web tier"
+      }
+    }
+  },
+  "variables": {
+    "location": "East US",
+    "vnetName": "enterprise-vnet",
+    "vnetAddressPrefix": "10.0.0.0/16",
+    "webSubnetName": "web-subnet",
+    "webSubnetPrefix": "10.0.1.0/24",
+    "appSubnetName": "app-subnet",
+    "appSubnetPrefix": "10.0.2.0/24",
+    "agwSubnetName": "agw-subnet",
+    "agwSubnetPrefix": "10.0.3.0/24",
+    "webNsgName": "web-nsg",
+    "appNsgName": "app-nsg",
+    "agwNsgName": "agw-nsg",
+    "publicIpName": "agw-public-ip",
+    "storageAccountName": "[concat('enterprisedata', uniqueString(resourceGroup().id))]",
+    "vmssName": "web-vmss",
+    "appGatewayName": "enterprise-appgw",
+    "nicName": "web-vmss-nic",
+    "ipConfigName": "web-vmss-ipconfig",
+    "imageReference": {
+      "publisher": "Canonical",
+      "offer": "UbuntuServer",
+      "sku": "18.04-LTS",
+      "version": "latest"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('webNsgName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-http-from-agw",
+            "properties": {
+              "priority": 100,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "80",
+              "sourceAddressPrefix": "10.0.3.0/24",
+              "destinationAddressPrefix": "10.0.1.0/24",
+              "description": "Allow HTTP from Application Gateway"
+            }
+          },
+          {
+            "name": "allow-https-from-agw",
+            "properties": {
+              "priority": 110,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "443",
+              "sourceAddressPrefix": "10.0.3.0/24",
+              "destinationAddressPrefix": "10.0.1.0/24",
+              "description": "Allow HTTPS from Application Gateway"
+            }
+          },
+          {
+            "name": "deny-internet-inbound",
+            "properties": {
+              "priority": 4096,
+              "access": "Deny",
+              "direction": "Inbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*",
+              "description": "Deny all inbound from Internet"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('appNsgName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-app-from-web",
+            "properties": {
+              "priority": 100,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "8080",
+              "sourceAddressPrefix": "10.0.1.0/24",
+              "destinationAddressPrefix": "10.0.2.0/24",
+              "description": "Allow application traffic from web tier"
+            }
+          },
+          {
+            "name": "deny-all-inbound",
+            "properties": {
+              "priority": 4096,
+              "access": "Deny",
+              "direction": "Inbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "description": "Deny all other inbound traffic"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('agwNsgName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-http-internet",
+            "properties": {
+              "priority": 100,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "80",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*",
+              "description": "Allow HTTP from Internet"
+            }
+          },
+          {
+            "name": "allow-https-internet",
+            "properties": {
+              "priority": 110,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "443",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*",
+              "description": "Allow HTTPS from Internet"
+            }
+          },
+          {
+            "name": "allow-agw-infrastructure",
+            "properties": {
+              "priority": 120,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "65200-65535",
+              "sourceAddressPrefix": "GatewayManager",
+              "destinationAddressPrefix": "*",
+              "description": "Allow Application Gateway infrastructure ports"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('publicIpName')]",
+      "location": "[variables('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "dnsSettings": {
+          "domainNameLabel": "[concat('enterprise-app-', uniqueString(resourceGroup().id))]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('vnetName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('webNsgName'))]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('appNsgName'))]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('agwNsgName'))]"
+      ],
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('vnetAddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('webSubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('webSubnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('webNsgName'))]"
+              }
+            }
+          },
+          {
+            "name": "[variables('appSubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('appSubnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('appNsgName'))]"
+              }
+            }
+          },
+          {
+            "name": "[variables('agwSubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('agwSubnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('agwNsgName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2021-09-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[variables('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "supportsHttpsTrafficOnly": true,
+        "minimumTlsVersion": "TLS1_2",
+        "encryption": {
+          "services": {
+            "blob": {
+              "enabled": true
+            },
+            "file": {
+              "enabled": true
+            }
+          },
+          "keySource": "Microsoft.Storage"
+        },
+        "networkAcls": {
+          "bypass": "AzureServices",
+          "defaultAction": "Allow"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachineScaleSets",
+      "apiVersion": "2021-11-01",
+      "name": "[variables('vmssName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+        "[resourceId('Microsoft.Network/applicationGateways', variables('appGatewayName'))]"
+      ],
+      "sku": {
+        "name": "[parameters('vmSku')]",
+        "tier": "Standard",
+        "capacity": "[parameters('instanceCount')]"
+      },
+      "properties": {
+        "overprovision": false,
+        "upgradePolicy": {
+          "mode": "Manual"
+        },
+        "virtualMachineProfile": {
+          "storageProfile": {
+            "imageReference": "[variables('imageReference')]",
+            "osDisk": {
+              "createOption": "FromImage",
+              "caching": "ReadWrite",
+              "managedDisk": {
+                "storageAccountType": "Premium_LRS"
+              }
+            }
+          },
+          "osProfile": {
+            "computerNamePrefix": "web",
+            "adminUsername": "[parameters('adminUsername')]",
+            "adminPassword": "[parameters('adminPassword')]",
+            "linuxConfiguration": {
+              "disablePasswordAuthentication": false
+            }
+          },
+          "networkProfile": {
+            "networkInterfaceConfigurations": [
+              {
+                "name": "[variables('nicName')]",
+                "properties": {
+                  "primary": true,
+                  "ipConfigurations": [
+                    {
+                      "name": "[variables('ipConfigName')]",
+                      "properties": {
+                        "subnet": {
+                          "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('webSubnetName'))]"
+                        },
+                        "applicationGatewayBackendAddressPools": [
+                          {
+                            "id": "[resourceId('Microsoft.Network/applicationGateways/backendAddressPools', variables('appGatewayName'), 'web-backend-pool')]"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "extensionProfile": {
+            "extensions": [
+              {
+                "name": "InstallWebServer",
+                "properties": {
+                  "publisher": "Microsoft.Azure.Extensions",
+                  "type": "CustomScript",
+                  "typeHandlerVersion": "2.1",
+                  "autoUpgradeMinorVersion": true,
+                  "settings": {
+                    "commandToExecute": "apt-get update && apt-get install -y nginx && systemctl start nginx && systemctl enable nginx"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/applicationGateways",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('appGatewayName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+      ],
+      "properties": {
+        "sku": {
+          "name": "Standard_v2",
+          "tier": "Standard_v2",
+          "capacity": 2
+        },
+        "gatewayIPConfigurations": [
+          {
+            "name": "agw-ip-config",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('agwSubnetName'))]"
+              }
+            }
+          }
+        ],
+        "frontendIPConfigurations": [
+          {
+            "name": "agw-frontend-ip",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+              }
+            }
+          }
+        ],
+        "frontendPorts": [
+          {
+            "name": "http-port",
+            "properties": {
+              "port": 80
+            }
+          },
+          {
+            "name": "https-port",
+            "properties": {
+              "port": 443
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "web-backend-pool",
+            "properties": {
+              "backendAddresses": []
+            }
+          }
+        ],
+        "backendHttpSettingsCollection": [
+          {
+            "name": "http-settings",
+            "properties": {
+              "port": 80,
+              "protocol": "Http",
+              "cookieBasedAffinity": "Disabled",
+              "requestTimeout": 30,
+              "pickHostNameFromBackendAddress": false,
+              "probe": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/probes', variables('appGatewayName'), 'health-probe')]"
+              }
+            }
+          }
+        ],
+        "httpListeners": [
+          {
+            "name": "http-listener",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', variables('appGatewayName'), 'agw-frontend-ip')]"
+              },
+              "frontendPort": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', variables('appGatewayName'), 'http-port')]"
+              },
+              "protocol": "Http"
+            }
+          }
+        ],
+        "requestRoutingRules": [
+          {
+            "name": "routing-rule",
+            "properties": {
+              "ruleType": "Basic",
+              "priority": 100,
+              "httpListener": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/httpListeners', variables('appGatewayName'), 'http-listener')]"
+              },
+              "backendAddressPool": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/backendAddressPools', variables('appGatewayName'), 'web-backend-pool')]"
+              },
+              "backendHttpSettings": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', variables('appGatewayName'), 'http-settings')]"
+              }
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "health-probe",
+            "properties": {
+              "protocol": "Http",
+              "path": "/",
+              "interval": 30,
+              "timeout": 30,
+              "unhealthyThreshold": 3,
+              "pickHostNameFromBackendHttpSettings": false,
+              "minServers": 0,
+              "match": {
+                "statusCodes": [
+                  "200-399"
+                ]
+              }
+            }
+          }
+        ],
+        "enableHttp2": false
+      }
+    }
+  ],
+  "outputs": {
+    "applicationGatewayPublicIP": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))).ipAddress]"
+    },
+    "applicationGatewayFQDN": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))).dnsSettings.fqdn]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[variables('storageAccountName')]"
+    },
+    "storageAccountEndpoint": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))).primaryEndpoints.blob]"
+    },
+    "virtualNetworkId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+    },
+    "vmssName": {
+      "type": "string",
+      "value": "[variables('vmssName')]"
+    }
+  }
+}

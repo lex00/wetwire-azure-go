@@ -1,0 +1,477 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmAdminUsername": {
+      "type": "string",
+      "defaultValue": "azureuser",
+      "metadata": {
+        "description": "Administrator username for the virtual machines"
+      }
+    },
+    "vmAdminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Administrator password for the virtual machines"
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_B2s",
+      "metadata": {
+        "description": "Size of the virtual machines"
+      }
+    },
+    "instanceCount": {
+      "type": "int",
+      "defaultValue": 2,
+      "minValue": 1,
+      "maxValue": 10,
+      "metadata": {
+        "description": "Number of web server instances"
+      }
+    }
+  },
+  "variables": {
+    "location": "[resourceGroup().location]",
+    "vnetName": "enterprise-vnet",
+    "vnetAddressPrefix": "10.0.0.0/16",
+    "webSubnetName": "web-subnet",
+    "webSubnetPrefix": "10.0.1.0/24",
+    "appSubnetName": "app-subnet",
+    "appSubnetPrefix": "10.0.2.0/24",
+    "dataSubnetName": "data-subnet",
+    "dataSubnetPrefix": "10.0.3.0/24",
+    "webNsgName": "web-nsg",
+    "appNsgName": "app-nsg",
+    "dataNsgName": "data-nsg",
+    "storageAccountName": "[concat('storage', uniqueString(resourceGroup().id))]",
+    "vmssName": "web-vmss",
+    "publicIpName": "appgw-public-ip",
+    "appGatewayName": "app-gateway",
+    "loadBalancerName": "web-lb"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('webNsgName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-http",
+            "properties": {
+              "priority": 100,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "80",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "description": "Allow HTTP traffic from internet"
+            }
+          },
+          {
+            "name": "allow-https",
+            "properties": {
+              "priority": 110,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "443",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "description": "Allow HTTPS traffic from internet"
+            }
+          },
+          {
+            "name": "allow-ssh",
+            "properties": {
+              "priority": 120,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "22",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "description": "Allow SSH for management"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('appNsgName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-from-web-tier",
+            "properties": {
+              "priority": 100,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "8080",
+              "sourceAddressPrefix": "[variables('webSubnetPrefix')]",
+              "destinationAddressPrefix": "*",
+              "description": "Allow traffic from web tier"
+            }
+          },
+          {
+            "name": "deny-internet",
+            "properties": {
+              "priority": 200,
+              "access": "Deny",
+              "direction": "Inbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*",
+              "description": "Deny direct internet access"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('dataNsgName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-from-app-tier",
+            "properties": {
+              "priority": 100,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "3306",
+              "sourceAddressPrefix": "[variables('appSubnetPrefix')]",
+              "destinationAddressPrefix": "*",
+              "description": "Allow database traffic from app tier"
+            }
+          },
+          {
+            "name": "deny-all-other",
+            "properties": {
+              "priority": 200,
+              "access": "Deny",
+              "direction": "Inbound",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*",
+              "description": "Deny all other traffic"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('vnetName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('webNsgName'))]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('appNsgName'))]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('dataNsgName'))]"
+      ],
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('vnetAddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('webSubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('webSubnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('webNsgName'))]"
+              }
+            }
+          },
+          {
+            "name": "[variables('appSubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('appSubnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('appNsgName'))]"
+              }
+            }
+          },
+          {
+            "name": "[variables('dataSubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('dataSubnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('dataNsgName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2021-09-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[variables('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "supportsHttpsTrafficOnly": true,
+        "minimumTlsVersion": "TLS1_2",
+        "encryption": {
+          "services": {
+            "blob": {
+              "enabled": true
+            },
+            "file": {
+              "enabled": true
+            }
+          },
+          "keySource": "Microsoft.Storage"
+        },
+        "networkAcls": {
+          "defaultAction": "Deny",
+          "virtualNetworkRules": [
+            {
+              "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('webSubnetName'))]",
+              "action": "Allow"
+            },
+            {
+              "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('appSubnetName'))]",
+              "action": "Allow"
+            }
+          ],
+          "bypass": "AzureServices"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('publicIpName')]",
+      "location": "[variables('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "dnsSettings": {
+          "domainNameLabel": "[concat('webapp-', uniqueString(resourceGroup().id))]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/loadBalancers",
+      "apiVersion": "2021-05-01",
+      "name": "[variables('loadBalancerName')]",
+      "location": "[variables('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+      ],
+      "properties": {
+        "frontendIPConfigurations": [
+          {
+            "name": "LoadBalancerFrontEnd",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+              }
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "BackendPool"
+          }
+        ],
+        "loadBalancingRules": [
+          {
+            "name": "HTTPRule",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', variables('loadBalancerName'), 'LoadBalancerFrontEnd')]"
+              },
+              "backendAddressPool": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), 'BackendPool')]"
+              },
+              "protocol": "Tcp",
+              "frontendPort": 80,
+              "backendPort": 80,
+              "enableFloatingIP": false,
+              "idleTimeoutInMinutes": 5,
+              "probe": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/probes', variables('loadBalancerName'), 'HealthProbe')]"
+              }
+            }
+          },
+          {
+            "name": "HTTPSRule",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', variables('loadBalancerName'), 'LoadBalancerFrontEnd')]"
+              },
+              "backendAddressPool": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), 'BackendPool')]"
+              },
+              "protocol": "Tcp",
+              "frontendPort": 443,
+              "backendPort": 443,
+              "enableFloatingIP": false,
+              "idleTimeoutInMinutes": 5,
+              "probe": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/probes', variables('loadBalancerName'), 'HealthProbe')]"
+              }
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "HealthProbe",
+            "properties": {
+              "protocol": "Http",
+              "port": 80,
+              "requestPath": "/",
+              "intervalInSeconds": 15,
+              "numberOfProbes": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachineScaleSets",
+      "apiVersion": "2021-11-01",
+      "name": "[variables('vmssName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+        "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ],
+      "sku": {
+        "name": "[parameters('vmSize')]",
+        "tier": "Standard",
+        "capacity": "[parameters('instanceCount')]"
+      },
+      "properties": {
+        "overprovision": true,
+        "upgradePolicy": {
+          "mode": "Manual"
+        },
+        "virtualMachineProfile": {
+          "storageProfile": {
+            "osDisk": {
+              "createOption": "FromImage",
+              "caching": "ReadWrite",
+              "managedDisk": {
+                "storageAccountType": "Premium_LRS"
+              }
+            },
+            "imageReference": {
+              "publisher": "Canonical",
+              "offer": "UbuntuServer",
+              "sku": "18.04-LTS",
+              "version": "latest"
+            }
+          },
+          "osProfile": {
+            "computerNamePrefix": "webvm",
+            "adminUsername": "[parameters('vmAdminUsername')]",
+            "adminPassword": "[parameters('vmAdminPassword')]",
+            "customData": "[base64(concat('#!/bin/bash\n', 'apt-get update\n', 'apt-get install -y nginx\n', 'systemctl enable nginx\n', 'systemctl start nginx\n', 'echo \"<h1>Web Server Instance: $(hostname)</h1>\" > /var/www/html/index.html'))]"
+          },
+          "networkProfile": {
+            "networkInterfaceConfigurations": [
+              {
+                "name": "nic-config",
+                "properties": {
+                  "primary": true,
+                  "ipConfigurations": [
+                    {
+                      "name": "ipconfig1",
+                      "properties": {
+                        "subnet": {
+                          "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('webSubnetName'))]"
+                        },
+                        "loadBalancerBackendAddressPools": [
+                          {
+                            "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), 'BackendPool')]"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "extensionProfile": {
+            "extensions": [
+              {
+                "name": "CustomScriptExtension",
+                "properties": {
+                  "publisher": "Microsoft.Azure.Extensions",
+                  "type": "CustomScript",
+                  "typeHandlerVersion": "2.1",
+                  "autoUpgradeMinorVersion": true,
+                  "settings": {
+                    "commandToExecute": "echo 'Web server ready'"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "publicIPAddress": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))).ipAddress]"
+    },
+    "publicFQDN": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))).dnsSettings.fqdn]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "[variables('storageAccountName')]"
+    },
+    "vnetName": {
+      "type": "string",
+      "value": "[variables('vnetName')]"
+    },
+    "loadBalancerName": {
+      "type": "string",
+      "value": "[variables('loadBalancerName')]"
+    }
+  }
+}

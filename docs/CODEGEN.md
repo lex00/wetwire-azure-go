@@ -1,4 +1,7 @@
-# Code Generation Pipeline
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./wetwire-dark.svg">
+  <img src="./wetwire-light.svg" width="100" height="67">
+</picture>
 
 This document describes how wetwire-azure-go generates Azure resource types from ARM schemas.
 

@@ -1,0 +1,109 @@
+Persona: beginner
+Date: 2026-01-19T21:25:49-07:00
+Duration: 2m23.577s
+Success: true
+Score: 9/12
+
+════════════════════════════════════════════════════════════════════════════════
+USER
+════════════════════════════════════════════════════════════════════════════════
+
+I need to deploy a web application to Azure.
+
+I need:
+- A network to host everything
+- Web servers that can handle traffic from the internet
+- Storage for application data
+- Security to protect each layer
+
+Can you help me create an ARM template with the Azure infrastructure?
+
+════════════════════════════════════════════════════════════════════════════════
+ASSISTANT
+════════════════════════════════════════════════════════════════════════════════
+
+I'll help you create an ARM template for a secure multi-tier web application infrastructure in Azure. Let me create the necessary directory structure and generate the template.Now I'll create a comprehensive ARM template that includes all the components you need for a secure web application:Now let me create a comprehensive README to help you understand and deploy this template:Now let me create a parameters file to make deployment easier:Finally, let me create a deployment script to make it even easier to deploy:Perfect! I've created a complete Azure ARM template for your multi-tier enterprise web application. Here's what I've built for you:
+
+## 📦 Created Files
+
+1. **`template.json`** - The main ARM template with all infrastructure
+2. **`README.md`** - Comprehensive documentation and deployment guide
+3. **`parameters.json`** - Parameter file for easy configuration
+4. **`deploy.sh`** - Automated deployment script
+
+## 🏗️ Infrastructure Components
+
+### Network Layer
+- **Virtual Network** (10.0.0.0/16) with three isolated subnets:
+  - Web tier (10.0.1.0/24) - Public-facing
+  - App tier (10.0.2.0/24) - Internal only
+  - Data tier (10.0.3.0/24) - Most restricted
+
+### Security Layer
+- **Network Security Groups** for each tier with proper isolation:
+  - Web NSG: Allows HTTP/HTTPS from internet
+  - App NSG: Only allows traffic from web tier
+  - Data NSG: Only allows traffic from app tier
+
+### Web Servers
+- **VM Scale Set** with 2-10 Ubuntu instances
+- **Auto-configured NGINX** web servers
+- **Load Balancer** with health probes
+- **Public IP** with DNS name for easy access
+
+### Storage
+- **Storage Account** with:
+  - TLS 1.2 encryption
+  - Network restrictions (only VNet access)
+  - Encrypted at rest
+
+## 🚀 Quick Deployment
+
+### Option 1: Using the Script (Easiest)
+```bash
+cd /Users/alex/Documents/checkouts/wetwire-azure-go/examples/enterprise_scenario/results/beginner
+./deploy.sh
+```
+
+### Option 2: Using Azure CLI
+```bash
+az group create --name webapp-rg --location eastus
+
+az deployment group create \
+  --resource-group webapp-rg \
+  --template-file template.json \
+  --parameters vmAdminPassword='YourSecurePassword123!'
+```
+
+## 🔒 Security Features
+
+✅ Three-tier network isolation  
+✅ Network Security Groups with least-privilege rules  
+✅ Encrypted storage with HTTPS-only  
+✅ No direct internet access to app/data tiers  
+✅ Load balancer with health monitoring  
+
+## 💰 Estimated Cost
+
+Approximately **$88-100/month** for:
+- 2 web servers (Standard_B2s)
+- Load balancer
+- Storage account
+- Static public IP
+
+## 📊 What You Get
+
+After deployment (takes ~10-15 minutes), you'll receive:
+- **Public URL** to access your application
+- **Public IP address**
+- **Storage account** for your data
+- **Scalable infrastructure** (1-10 instances)
+
+The deployment script will show you all the details and save them to `deployment-info.txt`.
+
+All files are ready in:
+```
+/Users/alex/Documents/checkouts/wetwire-azure-go/examples/enterprise_scenario/results/beginner/
+```
+
+Would you like me to explain any specific part of the template or help you customize it further?

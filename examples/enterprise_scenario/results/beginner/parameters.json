@@ -1,0 +1,18 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmAdminUsername": {
+      "value": "azureuser"
+    },
+    "vmAdminPassword": {
+      "value": "REPLACE_WITH_YOUR_SECURE_PASSWORD"
+    },
+    "vmSize": {
+      "value": "Standard_B2s"
+    },
+    "instanceCount": {
+      "value": 2
+    }
+  }
+}

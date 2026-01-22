@@ -1,0 +1,209 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "variables": {},
+  "resources": [
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2021-05-01",
+      "name": "enterprise-pip",
+      "location": "eastus",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static"
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2021-05-01",
+      "name": "web-nsg",
+      "location": "eastus",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-http",
+            "properties": {
+              "priority": 100,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "80",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*"
+            }
+          },
+          {
+            "name": "allow-https",
+            "properties": {
+              "priority": 110,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "443",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "*"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2021-05-01",
+      "name": "app-nsg",
+      "location": "eastus",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-8080-from-web",
+            "properties": {
+              "priority": 100,
+              "access": "Allow",
+              "direction": "Inbound",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "8080",
+              "sourceAddressPrefix": "10.0.1.0/24",
+              "destinationAddressPrefix": "*"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2021-05-01",
+      "name": "enterprise-vnet",
+      "location": "eastus",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', 'web-nsg')]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', 'app-nsg')]"
+      ],
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "web-subnet",
+            "properties": {
+              "addressPrefix": "10.0.1.0/24",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'web-nsg')]"
+              }
+            }
+          },
+          {
+            "name": "app-subnet",
+            "properties": {
+              "addressPrefix": "10.0.2.0/24",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'app-nsg')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2021-09-01",
+      "name": "enterprisedata001",
+      "location": "eastus",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "supportsHttpsTrafficOnly": true,
+        "minimumTlsVersion": "TLS1_2"
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachineScaleSets",
+      "apiVersion": "2021-11-01",
+      "name": "web-vmss",
+      "location": "eastus",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', 'enterprise-vnet')]"
+      ],
+      "sku": {
+        "name": "Standard_B2s",
+        "tier": "Standard",
+        "capacity": 2
+      },
+      "properties": {
+        "overprovision": false,
+        "upgradePolicy": {
+          "mode": "Manual"
+        },
+        "virtualMachineProfile": {
+          "storageProfile": {
+            "osDisk": {
+              "createOption": "FromImage",
+              "caching": "ReadWrite",
+              "managedDisk": {
+                "storageAccountType": "Standard_LRS"
+              }
+            },
+            "imageReference": {
+              "publisher": "Canonical",
+              "offer": "UbuntuServer",
+              "sku": "18.04-LTS",
+              "version": "latest"
+            }
+          },
+          "osProfile": {
+            "computerNamePrefix": "web",
+            "adminUsername": "azureuser",
+            "adminPassword": "P@ssw0rd1234!",
+            "linuxConfiguration": {
+              "disablePasswordAuthentication": false
+            }
+          },
+          "networkProfile": {
+            "networkInterfaceConfigurations": [
+              {
+                "name": "web-nic-config",
+                "properties": {
+                  "primary": true,
+                  "ipConfigurations": [
+                    {
+                      "name": "ipconfig1",
+                      "properties": {
+                        "subnet": {
+                          "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'enterprise-vnet', 'web-subnet')]"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "publicIPAddress": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', 'enterprise-pip')).ipAddress]"
+    },
+    "storageAccountName": {
+      "type": "string",
+      "value": "enterprisedata001"
+    },
+    "vnetId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/virtualNetworks', 'enterprise-vnet')]"
+    }
+  }
+}

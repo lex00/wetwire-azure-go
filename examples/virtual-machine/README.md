@@ -1,4 +1,7 @@
-# Virtual Machine Example
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../../docs/wetwire-dark.svg">
+  <img src="../../docs/wetwire-light.svg" width="100" height="67">
+</picture>
 
 This example demonstrates deploying an Azure Linux Virtual Machine using wetwire-azure-go.
 

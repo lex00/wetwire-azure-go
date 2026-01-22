@@ -1,4 +1,7 @@
-# Quick Start Guide
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./wetwire-dark.svg">
+  <img src="./wetwire-light.svg" width="100" height="67">
+</picture>
 
 Get up and running with wetwire-azure-go in 5 minutes.
 
