@@ -1,10 +1,6 @@
 ---
 title: "Lint Rules"
 ---
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./wetwire-dark.svg">
-  <img src="./wetwire-light.svg" width="100" height="67">
-</picture>
 
 wetwire-azure-go includes lint rules to enforce best practices and idiomatic patterns for declarative Azure ARM/Bicep infrastructure-as-code.
 
