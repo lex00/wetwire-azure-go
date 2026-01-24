@@ -1,45 +1,56 @@
 ---
-title: "Faq"
+title: "FAQ"
 ---
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./wetwire-dark.svg">
-  <img src="./wetwire-light.svg" width="100" height="67">
-</picture>
 
-This FAQ covers questions specific to the Go implementation of wetwire for Azure ARM/Bicep templates. For general wetwire questions, see the [central FAQ](https://github.com/lex00/wetwire/blob/main/docs/FAQ.md).
+Frequently asked questions about wetwire-azure-go.
 
 ---
 
 ## Getting Started
 
-### How do I install wetwire-azure-go?
+<details>
+<summary>How do I install wetwire-azure-go?</summary>
 
-See [README.md](../README.md#installation) for installation instructions.
+```bash
+go install github.com/lex00/wetwire-azure-go@latest
+```
 
-### How do I create a new project?
+</details>
+
+<details>
+<summary>How do I create a new project?</summary>
 
 ```bash
 wetwire-azure init my-infrastructure
 cd my-infrastructure
 ```
 
-### How do I build an ARM template?
+</details>
+
+<details>
+<summary>How do I build an ARM template?</summary>
 
 ```bash
 wetwire-azure build ./infra > template.json
 ```
 
-### How do I build a Bicep template?
+</details>
+
+<details>
+<summary>How do I build a Bicep template?</summary>
 
 ```bash
 wetwire-azure build ./infra --format bicep > main.bicep
 ```
 
+</details>
+
 ---
 
 ## Syntax
 
-### How do I reference another resource?
+<details>
+<summary>How do I reference another resource?</summary>
 
 Use direct variable references:
 
@@ -53,7 +64,10 @@ var MyVM = compute.VirtualMachine{
 }
 ```
 
-### How do I use ARM template functions?
+</details>
+
+<details>
+<summary>How do I use ARM template functions?</summary>
 
 Use the intrinsics package:
 
@@ -66,7 +80,10 @@ var MyStorage = storage.StorageAccount{
 }
 ```
 
-### How do I reference resource group properties?
+</details>
+
+<details>
+<summary>How do I reference resource group properties?</summary>
 
 Use the `ResourceGroup()` function:
 
@@ -81,7 +98,10 @@ Location: ResourceGroup().Location
 Id: ResourceGroup().Id
 ```
 
-### How do I create resource dependencies?
+</details>
+
+<details>
+<summary>How do I create resource dependencies?</summary>
 
 Dependencies are implicit via resource references:
 
@@ -96,11 +116,14 @@ var MyVM = compute.VirtualMachine{
 }
 ```
 
+</details>
+
 ---
 
 ## Azure-Specific Questions
 
-### How do I handle storage account name constraints?
+<details>
+<summary>How do I handle storage account name constraints?</summary>
 
 Storage account names must be 3-24 lowercase alphanumeric characters and globally unique:
 
@@ -112,11 +135,17 @@ Name: "my-storage-account-name-that-is-too-long"
 Name: Concat([]any{"storage", UniqueString(ResourceGroup().Id)})
 ```
 
-### How do I specify API versions for resources?
+</details>
+
+<details>
+<summary>How do I specify API versions for resources?</summary>
 
 API versions are handled automatically based on the resource type schema. The build command selects appropriate API versions.
 
-### How do I use managed identities?
+</details>
+
+<details>
+<summary>How do I use managed identities?</summary>
 
 ```go
 var MyVMIdentity = compute.VirtualMachine_Identity{
@@ -134,7 +163,10 @@ var MyRoleAssignment = authorization.RoleAssignment{
 }
 ```
 
-### How do I create a VM with a managed disk?
+</details>
+
+<details>
+<summary>How do I create a VM with a managed disk?</summary>
 
 ```go
 var MyDisk = compute.Disk{
@@ -157,7 +189,10 @@ var MyVM = compute.VirtualMachine{
 }
 ```
 
-### How do I create a VNet with subnets?
+</details>
+
+<details>
+<summary>How do I create a VNet with subnets?</summary>
 
 ```go
 var MySubnet = network.VirtualNetwork_Subnet{
@@ -175,7 +210,10 @@ var MyVNet = network.VirtualNetwork{
 }
 ```
 
-### How do I set tags on resources?
+</details>
+
+<details>
+<summary>How do I set tags on resources?</summary>
 
 ```go
 var MyStorage = storage.StorageAccount{
@@ -188,7 +226,10 @@ var MyStorage = storage.StorageAccount{
 }
 ```
 
-### How do I use parameters for deployment-time values?
+</details>
+
+<details>
+<summary>How do I use parameters for deployment-time values?</summary>
 
 ```go
 var LocationParam = Parameter{
@@ -202,11 +243,169 @@ var MyStorage = storage.StorageAccount{
 }
 ```
 
+</details>
+
+---
+
+## CI/CD and DevOps
+
+<details>
+<summary>How do I integrate wetwire-azure with my CI/CD pipeline?</summary>
+
+Add lint and build steps to your pipeline:
+
+```yaml
+# GitHub Actions example
+steps:
+  - name: Install wetwire-azure
+    run: go install github.com/lex00/wetwire-azure-go@latest
+
+  - name: Lint infrastructure code
+    run: wetwire-azure lint ./infra
+
+  - name: Build ARM template
+    run: wetwire-azure build ./infra > template.json
+
+  - name: Deploy to Azure
+    run: |
+      az deployment group create \
+        --resource-group ${{ vars.RESOURCE_GROUP }} \
+        --template-file template.json
+```
+
+For Azure DevOps:
+
+```yaml
+steps:
+  - task: GoTool@0
+    inputs:
+      version: '1.23'
+
+  - script: go install github.com/lex00/wetwire-azure-go@latest
+    displayName: 'Install wetwire-azure'
+
+  - script: wetwire-azure lint ./infra
+    displayName: 'Lint'
+
+  - script: wetwire-azure build ./infra > $(Build.ArtifactStagingDirectory)/template.json
+    displayName: 'Build ARM template'
+```
+
+</details>
+
+<details>
+<summary>Can I import existing ARM templates?</summary>
+
+Yes, use the import command:
+
+```bash
+# Import ARM template
+wetwire-azure import template.json -o ./my-infrastructure
+
+# Import Bicep file
+wetwire-azure import main.bicep -o ./my-infrastructure
+
+# Apply lint fixes after import
+wetwire-azure lint --fix ./my-infrastructure
+```
+
+Import is best-effort. Complex templates may need manual cleanup after import.
+
+</details>
+
+<details>
+<summary>How does the linter help catch errors?</summary>
+
+The linter enforces wetwire patterns and Azure best practices:
+
+```bash
+wetwire-azure lint ./infra
+```
+
+It checks for:
+- **Type safety**: Validates resource types and properties
+- **Reference validity**: Ensures referenced resources exist
+- **Security**: Detects hardcoded secrets and insecure configurations
+- **Azure constraints**: Validates naming conventions, API versions
+- **Pattern compliance**: Enforces declarative patterns
+
+Use `--fix` to auto-fix issues where possible:
+
+```bash
+wetwire-azure lint --fix ./infra
+```
+
+</details>
+
+<details>
+<summary>What's the recommended project structure?</summary>
+
+Organize by Azure resource category:
+
+```
+my-azure-infra/
+├── go.mod
+├── network.go         # VNets, subnets, NSGs, route tables
+├── compute.go         # VMs, scale sets, availability sets
+├── storage.go         # Storage accounts, disks, file shares
+├── database.go        # SQL databases, Cosmos DB
+├── security.go        # Key vaults, managed identities
+└── monitoring.go      # Log Analytics, Application Insights
+```
+
+For larger projects, use subdirectories:
+
+```
+my-azure-infra/
+├── go.mod
+├── environments/
+│   ├── dev/
+│   ├── staging/
+│   └── prod/
+└── modules/
+    ├── networking/
+    ├── compute/
+    └── data/
+```
+
+</details>
+
+<details>
+<summary>How do I handle linked templates?</summary>
+
+For complex deployments with multiple ARM templates, structure your Go code in separate packages and build each independently:
+
+```bash
+# Build main template
+wetwire-azure build ./infra/main > main.json
+
+# Build linked templates
+wetwire-azure build ./infra/networking > networking.json
+wetwire-azure build ./infra/compute > compute.json
+```
+
+Reference linked templates using `templateLink`:
+
+```go
+var NetworkingDeployment = resources.Deployment{
+    Name: "networking",
+    Properties: resources.Deployment_Properties{
+        Mode: "Incremental",
+        TemplateLink: resources.Deployment_TemplateLink{
+            Uri: "[uri(deployment().properties.templateLink.uri, 'networking.json')]",
+        },
+    },
+}
+```
+
+</details>
+
 ---
 
 ## Lint Rules
 
-### What do the WAZ rule codes mean?
+<details>
+<summary>What do the WAZ rule codes mean?</summary>
 
 WAZ stands for "Wetwire AZure". Common rules include:
 
@@ -218,35 +417,50 @@ WAZ stands for "Wetwire AZure". Common rules include:
 | WAZ004 | Use typed structs instead of `map[string]any` |
 | WAZ005 | Detect duplicate resource names |
 
-See [LINT_RULES.md](LINT_RULES.md) for complete documentation.
+See [Lint Rules]({{< relref "/lint-rules" >}}) for complete documentation.
 
-### How do I auto-fix lint issues?
+</details>
+
+<details>
+<summary>How do I auto-fix lint issues?</summary>
 
 ```bash
 wetwire-azure lint --fix ./infra
 ```
 
-### How do I disable a specific lint rule?
+</details>
+
+<details>
+<summary>How do I disable a specific lint rule?</summary>
 
 Currently lint rules cannot be disabled individually. If you have a valid use case, file an issue.
+
+</details>
 
 ---
 
 ## Import
 
-### How do I convert an existing ARM template?
+<details>
+<summary>How do I convert an existing ARM template?</summary>
 
 ```bash
 wetwire-azure import template.json -o ./my-infrastructure
 ```
 
-### How do I convert a Bicep file?
+</details>
+
+<details>
+<summary>How do I convert a Bicep file?</summary>
 
 ```bash
 wetwire-azure import main.bicep -o ./my-infrastructure
 ```
 
-### Import produced code that doesn't compile?
+</details>
+
+<details>
+<summary>Import produced code that doesn't compile?</summary>
 
 Import is best-effort. Complex templates may need manual cleanup:
 
@@ -254,7 +468,10 @@ Import is best-effort. Complex templates may need manual cleanup:
 2. Review and manually fix remaining issues
 3. Check for unsupported ARM template functions
 
-### What ARM template features are supported by import?
+</details>
+
+<details>
+<summary>What ARM template features are supported by import?</summary>
 
 - Resources (all Azure types)
 - Parameters
@@ -263,30 +480,42 @@ Import is best-effort. Complex templates may need manual cleanup:
 - Most ARM template functions (concat, resourceId, reference, etc.)
 - Dependencies (via dependsOn)
 
+</details>
+
 ---
 
 ## Design Mode
 
-### How do I use AI-assisted design?
+<details>
+<summary>How do I use AI-assisted design?</summary>
 
 ```bash
 export ANTHROPIC_API_KEY=your-key
 wetwire-azure design "Create a Linux VM with storage account"
 ```
 
-### What model does design mode use?
+</details>
 
-Claude (via Anthropic API). The specific model is configured in wetwire-core-go.
+<details>
+<summary>What model does design mode use?</summary>
 
-### Can I use design mode without an API key?
+Claude (via Anthropic API). The specific model is configured internally.
+
+</details>
+
+<details>
+<summary>Can I use design mode without an API key?</summary>
 
 No. Design mode requires the Anthropic API.
+
+</details>
 
 ---
 
 ## Troubleshooting
 
-### "cannot find package" errors
+<details>
+<summary>"cannot find package" errors</summary>
 
 Ensure your `go.mod` has the correct module path and dependencies:
 
@@ -294,7 +523,10 @@ Ensure your `go.mod` has the correct module path and dependencies:
 go mod tidy
 ```
 
-### "undefined: storage" or similar import errors
+</details>
+
+<details>
+<summary>"undefined: storage" or similar import errors</summary>
 
 Add the missing import statement:
 
@@ -302,14 +534,20 @@ Add the missing import statement:
 import "github.com/lex00/wetwire-azure-go/resources/storage"
 ```
 
-### Build produces empty template
+</details>
+
+<details>
+<summary>Build produces empty template</summary>
 
 Check that:
 1. Resources are declared as package-level `var` statements
 2. Resources have the correct type (e.g., `storage.StorageAccount`)
 3. The package path is correct in the build command
 
-### Circular dependency detected
+</details>
+
+<details>
+<summary>Circular dependency detected</summary>
 
 Resources cannot have circular references. Review the dependency graph:
 
@@ -319,13 +557,19 @@ wetwire-azure graph ./infra | dot -Tpng -o deps.png
 
 Break the cycle by restructuring resources or using parameters.
 
-### "unknown resource type" error
+</details>
+
+<details>
+<summary>"unknown resource type" error</summary>
 
 The resource type may be misspelled or not supported. Check:
 1. Correct package import (e.g., `compute` not `vm`)
 2. Correct type name (e.g., `VirtualMachine` not `VM`)
 
-### Storage account name validation errors
+</details>
+
+<details>
+<summary>Storage account name validation errors</summary>
 
 Azure storage account names must be:
 - 3-24 characters long
@@ -338,7 +582,10 @@ Use `UniqueString()` for global uniqueness:
 Name: Concat([]any{"storage", UniqueString(ResourceGroup().Id)})
 ```
 
-### ARM template deployment fails with "resource not found"
+</details>
+
+<details>
+<summary>ARM template deployment fails with "resource not found"</summary>
 
 Check resource dependencies. Resources must be deployed in order. Use the graph command to visualize:
 
@@ -346,13 +593,19 @@ Check resource dependencies. Resources must be deployed in order. Use the graph 
 wetwire-azure graph ./infra
 ```
 
-### Bicep conversion issues
+</details>
+
+<details>
+<summary>Bicep conversion issues</summary>
 
 Some complex Go patterns may not convert cleanly to Bicep:
 1. Generate ARM JSON first and validate
 2. Use Azure CLI to convert ARM to Bicep if needed: `az bicep decompile --file template.json`
 
-### Import generates code that doesn't compile
+</details>
+
+<details>
+<summary>Import generates code that doesn't compile</summary>
 
 This is expected for complex templates. Fix with:
 
@@ -368,7 +621,10 @@ Common import issues:
 - Complex nested ARM template functions
 - Custom resource types
 
-### "ANTHROPIC_API_KEY not set" error
+</details>
+
+<details>
+<summary>"ANTHROPIC_API_KEY not set" error</summary>
 
 Design and test commands require an API key:
 
@@ -377,27 +633,39 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 wetwire-azure design "Create a storage account"
 ```
 
-### Lint reports issues but --fix doesn't help
+</details>
+
+<details>
+<summary>Lint reports issues but --fix doesn't help</summary>
 
 Some lint rules are advisory and don't have auto-fixes:
 - WAZ005 (duplicate names) - rename resources manually
 - Resource-specific validation errors - fix property values manually
 
-### Build succeeds but Azure deployment fails
+</details>
+
+<details>
+<summary>Build succeeds but Azure deployment fails</summary>
 
 The template is syntactically valid but may have semantic issues:
 1. Check Azure RBAC permissions for deployment
 2. Verify resource names are unique in the resource group
 3. Review Azure deployment error messages in portal or CLI
 
-### How do I handle resources in different resource groups?
+</details>
+
+<details>
+<summary>How do I handle resources in different resource groups?</summary>
 
 ARM templates deploy to a single resource group by default. For multi-resource-group deployments:
 1. Use nested deployments
 2. Deploy separate templates to each resource group
 3. Use Azure Blueprints for complex multi-resource-group infrastructure
 
-### How do I reference existing resources not in my template?
+</details>
+
+<details>
+<summary>How do I reference existing resources not in my template?</summary>
 
 Use the `Reference()` function with explicit resource IDs:
 
@@ -414,11 +682,14 @@ ExistingStorageRef := Reference(
 ConnectionString: ExistingStorageRef.primaryEndpoints.blob
 ```
 
+</details>
+
 ---
 
 ## Best Practices
 
-### Should I use ARM JSON or Bicep output?
+<details>
+<summary>Should I use ARM JSON or Bicep output?</summary>
 
 **Use ARM JSON when:**
 - You need maximum compatibility
@@ -432,7 +703,10 @@ ConnectionString: ExistingStorageRef.primaryEndpoints.blob
 
 Both formats represent the same infrastructure and can be converted between each other.
 
-### How should I organize my Azure infrastructure code?
+</details>
+
+<details>
+<summary>How should I organize my Azure infrastructure code?</summary>
 
 Recommended structure:
 
@@ -447,7 +721,10 @@ my-azure-infra/
 └── monitoring.go      # Log Analytics, Application Insights
 ```
 
-### Should I use parameters or hardcoded values?
+</details>
+
+<details>
+<summary>Should I use parameters or hardcoded values?</summary>
 
 **Use parameters for:**
 - Values that change between environments (location, size, SKU)
@@ -459,7 +736,10 @@ my-azure-infra/
 - Configuration that's environment-independent
 - Tags and metadata
 
-### How do I handle secrets and credentials?
+</details>
+
+<details>
+<summary>How do I handle secrets and credentials?</summary>
 
 Never hardcode secrets. Use:
 
@@ -479,11 +759,12 @@ var MyVM = compute.VirtualMachine{
 }
 ```
 
+</details>
+
 ---
 
 ## See Also
 
-- [Wetwire Specification](https://github.com/lex00/wetwire/blob/main/docs/WETWIRE_SPEC.md)
-- [CLI Reference](CLI.md)
-- [Lint Rules](LINT_RULES.md)
+- [CLI Reference]({{< relref "/cli" >}})
+- [Lint Rules]({{< relref "/lint-rules" >}})
 - [Azure ARM Template Reference](https://docs.microsoft.com/azure/templates/)

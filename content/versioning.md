@@ -84,7 +84,6 @@ var MyStorage = storage.StorageAccount{
 | Dependency | Policy |
 |------------|--------|
 | Go standard library | Follow Go version support |
-| wetwire-core-go | Compatible versions |
 | testify | Latest minor version |
 
 ### Updating Dependencies

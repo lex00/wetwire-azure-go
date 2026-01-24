@@ -374,8 +374,6 @@ wetwire-azure design --provider kiro "Create a web app with App Service plan"
 
 ### How It Works
 
-The `design` command uses the `wetwire-core-go` runner agent:
-
 1. **Clarification**: AI asks questions about your requirements
 2. **Code Generation**: Generates Go code using wetwire-azure patterns
 3. **Lint Cycle**: Runs `wetwire-azure lint` and auto-fixes issues
@@ -390,7 +388,7 @@ Press `Ctrl+C` to stop the session at any time.
 
 Run automated persona-based testing to evaluate AI code generation quality. Unlike `design`, this command uses an AI persona to simulate user responses.
 
-**Requires:** `wetwire-core-go` and an Anthropic API key in `ANTHROPIC_API_KEY`.
+**Requires:** Anthropic API key in `ANTHROPIC_API_KEY`.
 
 ```bash
 # Run with default persona (intermediate)
@@ -517,19 +515,7 @@ Location: ResourceGroup().Location
 
 ---
 
-## Dependencies
-
-### wetwire-core-go
-
-The `design` and `test` commands require [wetwire-core-go](https://github.com/lex00/wetwire-core-go), which provides:
-
-- **Runner Agent**: Orchestrates the AI-driven code generation workflow
-- **Personas**: Simulated user personas for automated testing
-- **Session Tracking**: Records questions, responses, and results
-
-Install via go.mod (already included as a dependency).
-
-### Anthropic API
+## Anthropic API
 
 The `design` and `test` commands require an Anthropic API key:
 
@@ -541,7 +527,6 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 
 ## See Also
 
-- [Quick Start](QUICK_START.md) - Create your first project
-- [FAQ](FAQ.md) - Common questions and answers
-- [Lint Rules](LINT_RULES.md) - Complete lint rule reference
-- [Wetwire Specification](https://github.com/lex00/wetwire/blob/main/docs/WETWIRE_SPEC.md) - Core philosophy
+- [Quick Start]({{< relref "/quick-start" >}}) - Create your first project
+- [FAQ]({{< relref "/faq" >}}) - Common questions and answers
+- [Lint Rules]({{< relref "/lint-rules" >}}) - Complete lint rule reference

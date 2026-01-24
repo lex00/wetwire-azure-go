@@ -358,6 +358,5 @@ To add new lint rules:
 
 ## See Also
 
-- [Wetwire Specification](https://github.com/lex00/wetwire/blob/main/docs/WETWIRE_SPEC.md) - Core lint rule requirements
-- [CLI Reference](CLI.md) - How to run the linter
-- [FAQ](FAQ.md) - Common questions about lint rules
+- [CLI Reference]({{< relref "/cli" >}}) - How to run the linter
+- [FAQ]({{< relref "/faq" >}}) - Common questions about lint rules
